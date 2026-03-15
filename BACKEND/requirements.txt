@@ -1,0 +1,16 @@
+Django>=5.0
+djangorestframework
+djangorestframework-simplejwt
+djoser
+django-filter
+psycopg2-binary
+python-decouple
+django-cors-headers
+Pillow
+redis
+celery
+drf-spectacular
+gunicorn
+pytest
+pytest-django
+django-axes

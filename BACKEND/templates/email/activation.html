@@ -1,0 +1,23 @@
+{% block subject %}{{ site_name }} | Activation de votre compte{% endblock %}
+
+{% block text_body %}
+Bonjour {{ user.full_name|default:user.phone_number }},
+
+Bienvenue sur {{ site_name }}.
+Veuillez activer votre compte en cliquant sur ce lien :
+{{ url }}
+
+Si vous n'êtes pas à l'origine de cette inscription, ignorez cet email.
+
+— L'équipe {{ site_name }}
+{% endblock %}
+
+{% block html_body %}
+<p>Bonjour {{ user.full_name|default:user.phone_number }},</p>
+<p>Bienvenue sur {{ site_name }}.</p>
+<p>
+  <a href="{{ url }}">Activer mon compte</a>
+</p>
+<p>Si vous n'êtes pas à l'origine de cette inscription, ignorez cet email.</p>
+<p>— L'équipe {{ site_name }}</p>
+{% endblock %}

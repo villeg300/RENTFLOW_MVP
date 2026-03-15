@@ -1,0 +1,158 @@
+@baseUrl = http://127.0.0.1:8000/api/v1/auth
+@phone = 51648786
+@email = villeg300@gmail.com
+@fullName = Ludovic Moyenga
+@password = Moyenga@19
+@newPassword = NewS3cretPass#456
+@resetPassword = ResetS3cret#789
+
+# Colle ici les valeurs recuperees (uid/token/access/refresh)
+@uid = REPLACE_UID
+@token = REPLACE_TOKEN
+@accessToken = REPLACE_ACCESS_TOKEN
+@refreshToken = REPLACE_REFRESH_TOKEN
+
+############################################
+# 1) INSCRIPTION + ACTIVATION
+############################################
+
+### Inscription
+POST {{baseUrl}}/users/
+Content-Type: application/json
+
+{
+  "phone_number": "{{phone}}",
+  "full_name": "{{fullName}}",
+  "email": "{{email}}",
+  "password": "{{password}}",
+  "re_password": "{{password}}"
+}
+
+### Activation du compte (uid + token depuis l'email)
+POST {{baseUrl}}/users/activation/
+Content-Type: application/json
+
+{
+  "uid": "{{uid}}",
+  "token": "{{token}}"
+}
+
+############################################
+# 2) LOGIN
+############################################
+
+### Connexion avec numero
+POST {{baseUrl}}/jwt/create/
+Content-Type: application/json
+
+{
+  "login": "{{phone}}",
+  "password": "{{password}}"
+}
+
+### Connexion avec email
+POST {{baseUrl}}/jwt/create/
+Content-Type: application/json
+
+{
+  "login": "{{email}}",
+  "password": "{{password}}"
+}
+
+############################################
+# 3) PROFIL / VERIFY / REFRESH / LOGOUT
+############################################
+
+### Profil courant (token requis)
+GET {{baseUrl}}/users/me/
+Authorization: Bearer {{accessToken}}
+
+### Verifier access token
+POST {{baseUrl}}/jwt/verify/
+Content-Type: application/json
+
+{
+  "token": "{{accessToken}}"
+}
+
+### Refresh token (rotation active)
+POST {{baseUrl}}/jwt/refresh/
+Content-Type: application/json
+
+{
+  "refresh": "{{refreshToken}}"
+}
+
+### Logout (blacklist refresh)
+POST {{baseUrl}}/jwt/logout/
+Content-Type: application/json
+
+{
+  "refresh": "{{refreshToken}}"
+}
+
+### Logout global (tous les appareils)
+POST {{baseUrl}}/jwt/logout_all/
+Authorization: Bearer {{accessToken}}
+
+############################################
+# 4) CHANGEMENT DE MOT DE PASSE
+############################################
+
+### Changement de mot de passe (auth requis)
+POST {{baseUrl}}/users/set_password/
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "current_password": "{{password}}",
+  "new_password": "{{newPassword}}"
+}
+
+### Connexion avec le nouveau mot de passe (email)
+POST {{baseUrl}}/jwt/create/
+Content-Type: application/json
+
+{
+  "login": "{{email}}",
+  "password": "{{newPassword}}"
+}
+
+############################################
+# 5) MOT DE PASSE OUBLIE
+############################################
+
+### Mot de passe oublie (envoi email)
+POST {{baseUrl}}/users/reset_password/
+Content-Type: application/json
+
+{
+  "email": "{{email}}"
+}
+
+### Confirmer reinitialisation (uid + token depuis l'email)
+POST {{baseUrl}}/users/reset_password_confirm/
+Content-Type: application/json
+
+{
+  "uid": "{{uid}}",
+  "token": "{{token}}",
+  "new_password": "{{resetPassword}}",
+  "re_new_password": "{{resetPassword}}"
+}
+
+### Connexion apres reinitialisation (email)
+POST {{baseUrl}}/jwt/create/
+Content-Type: application/json
+
+{
+  "login": "{{email}}",
+  "password": "{{resetPassword}}"
+}
+
+############################################
+# NOTE
+# - Avec ROTATE_REFRESH_TOKENS=True :
+#   Le refresh token change apres chaque /jwt/refresh/.
+#   Remplace {{refreshToken}} par le nouveau refresh.
+############################################
