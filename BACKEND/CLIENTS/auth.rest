@@ -1,6 +1,7 @@
-@baseUrl = http://127.0.0.1:8000/api/v1/auth
-@phone = 51648786
-@email = villeg300@gmail.com
+@apiRoot = http://127.0.0.1:8000/api/v1
+@baseUrl = {{apiRoot}}/auth
+@phone = 74372878
+@email = luddev.developpeur@gmail.com
 @fullName = Ludovic Moyenga
 @password = Moyenga@19
 @newPassword = NewS3cretPass#456
@@ -9,8 +10,11 @@
 # Colle ici les valeurs recuperees (uid/token/access/refresh)
 @uid = REPLACE_UID
 @token = REPLACE_TOKEN
-@accessToken = REPLACE_ACCESS_TOKEN
-@refreshToken = REPLACE_REFRESH_TOKEN
+@accessToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzczNzgzNDUwLCJpYXQiOjE3NzM3Nzk4NTAsImp0aSI6IjlhMTFjN2Q2NTc5ZjRhZjViYjQyZTc4NzU0ZmZmYjE0IiwidXNlcl9pZCI6ImY5ZmUwZGJkLTA0YzQtNGIxYi1iNTI4LTVjMDcxNzdmZjYxNyIsImFnZW5jeV9pZCI6ImQxZmQxNDIxLTM1MjEtNGQzOC05ZjYxLWYyODdlZjI5ODFiNyIsImFnZW5jeV9yb2xlIjoiYWdlbnQiLCJhZ2VuY3lfc2x1ZyI6ImFnZW5jZS1hbHBoYSJ9.tzLAp1AFoM3B69TTwKMNC83bl80-CS8L3vjyFxGwwhs
+@refreshToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoicmVmcmVzaCIsImV4cCI6MTc3Mzg2NjI1MCwiaWF0IjoxNzczNzc5ODUwLCJqdGkiOiJhNzIyNjU0N2IzZGY0NDRjOTEyYzNiZjI1OGUwN2QyNSIsInVzZXJfaWQiOiJmOWZlMGRiZC0wNGM0LTRiMWItYjUyOC01YzA3MTc3ZmY2MTciLCJhZ2VuY3lfaWQiOiJkMWZkMTQyMS0zNTIxLTRkMzgtOWY2MS1mMjg3ZWYyOTgxYjciLCJhZ2VuY3lfcm9sZSI6ImFnZW50IiwiYWdlbmN5X3NsdWciOiJhZ2VuY2UtYWxwaGEifQ.022rOgSZBydPXGT0toQQs3z9-yIzHHZH0pVAeeZwQ80
+@agencyId = d1fd1421-3521-4d38-9f61-f287ef2981b7
+@inviteToken = REPLACE_INVITE_TOKEN
+@inviteId = REPLACE_INVITE_ID
 
 ############################################
 # 1) INSCRIPTION + ACTIVATION
@@ -41,7 +45,7 @@ Content-Type: application/json
 # 2) LOGIN
 ############################################
 
-### Connexion avec numero
+### Connexion avec numero de telephone
 POST {{baseUrl}}/jwt/create/
 Content-Type: application/json
 
@@ -56,7 +60,8 @@ Content-Type: application/json
 
 {
   "login": "{{email}}",
-  "password": "{{password}}"
+  "password": "{{password}}",
+  "agency_id": null
 }
 
 ############################################
@@ -156,3 +161,80 @@ Content-Type: application/json
 #   Le refresh token change apres chaque /jwt/refresh/.
 #   Remplace {{refreshToken}} par le nouveau refresh.
 ############################################
+
+############################################
+# 6) AGENCES (MULTI-TENANT)
+############################################
+
+### Creer une agence
+POST {{apiRoot}}/agencies/
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "name": "Agence Alpha",
+  "email": "villeg300@gmail.com",
+  "phone_number": "74372878",
+  "address": "Ouagadougou"
+}
+
+### Lister mes agences
+GET {{apiRoot}}/agencies/
+Authorization: Bearer {{accessToken}}
+
+############################################
+# 7) INVITATIONS D'EQUIPE
+############################################
+
+### Inviter un membre
+POST {{apiRoot}}/agencies/{{agencyId}}/invitations/
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "email": "villeg300@gmail.com",
+  "role": "agent",
+  "message": "Bienvenue dans l'equipe."
+}
+
+### Relancer une invitation
+POST {{apiRoot}}/agencies/{{agencyId}}/invitations/{{inviteId}}/resend/
+Authorization: Bearer {{accessToken}}
+
+### Revoquer une invitation
+POST {{apiRoot}}/agencies/{{agencyId}}/invitations/{{inviteId}}/revoke/
+Authorization: Bearer {{accessToken}}
+
+### Voir une invitation (public)
+GET {{apiRoot}}/agencies/invitations/{{inviteToken}}/
+
+### Accepter l'invitation (auth requis)
+POST {{apiRoot}}/agencies/invitations/accept/
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "token": "{{inviteToken}}"
+}
+
+### Accepter l'invitation (sans compte: auto inscription)
+POST {{apiRoot}}/agencies/invitations/accept/
+Content-Type: application/json
+
+{
+  "token": "{{inviteToken}}",
+  "full_name": "Nouvel Agent",
+  "phone_number": "0700000099"
+}
+
+
+### Dashboard
+GET {{apiRoot}}/dashboard/finance/
+Authorization: Bearer {{accessToken}}
+X-Agency-ID: {{agencyId}}
+
+
+### Dashboard export
+GET {{apiRoot}}/dashboard/finance/export/
+Authorization: Bearer {{accessToken}}
+X-Agency-ID: {{agencyId}}

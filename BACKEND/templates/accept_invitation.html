@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <title>Accepter l'invitation</title>
+    <style>
+      body { font-family: Arial, sans-serif; max-width: 640px; margin: 40px auto; padding: 0 16px; }
+      .box { border: 1px solid #ddd; padding: 20px; border-radius: 8px; }
+      .error { color: #b00020; }
+      .success { color: #006400; }
+      label { display: block; margin-top: 12px; }
+      input { width: 100%; padding: 8px; margin-top: 6px; }
+      button { margin-top: 16px; padding: 10px 16px; }
+    </style>
+  </head>
+  <body>
+    <div class="box">
+      <h2>Invitation d'agence</h2>
+
+      {% if invitation %}
+        <p>Agence: <strong>{{ invitation.agency.name }}</strong></p>
+        <p>Email invite: <strong>{{ invitation.email }}</strong></p>
+        <p>Role: <strong>{{ invitation.role }}</strong></p>
+      {% endif %}
+
+      {% if success %}
+        <p class="success">Invitation acceptee. Vous pouvez maintenant vous connecter.</p>
+      {% else %}
+        {% if errors %}
+          <ul class="error">
+            {% for err in errors %}
+              <li>{{ err }}</li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+
+        {% if existing_user %}
+          <p>Ce compte existe deja. Connectez-vous puis acceptez l'invitation depuis l'application.</p>
+        {% else %}
+          <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="token" value="{{ token }}" />
+
+            {% if require_details %}
+              <label>Nom complet
+                <input type="text" name="full_name" required />
+              </label>
+              <label>Numero de telephone
+                <input type="text" name="phone_number" required />
+              </label>
+            {% endif %}
+
+            <button type="submit">Accepter l'invitation</button>
+          </form>
+        {% endif %}
+      {% endif %}
+    </div>
+  </body>
+</html>

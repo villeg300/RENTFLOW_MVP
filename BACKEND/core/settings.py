@@ -32,6 +32,11 @@ ALLOWED_HOSTS = config('ALLOWED_HOSTS').split(',')
 FRONTEND_DOMAIN = config('FRONTEND_DOMAIN', default='localhost:3000')
 FRONTEND_PROTOCOL = config('FRONTEND_PROTOCOL', default='http')
 FRONTEND_SITE_NAME = config('FRONTEND_SITE_NAME', default='RentFlow')
+API_BASE_URL = config('API_BASE_URL', default='http://127.0.0.1:8000')
+INVITATION_ACCEPT_URL = config(
+    'INVITATION_ACCEPT_URL',
+    default=f'{FRONTEND_PROTOCOL}://{FRONTEND_DOMAIN}/accept-invite?token={{token}}',
+)
 
 EMAIL_BACKEND = config(
     'EMAIL_BACKEND', default='django.core.mail.backends.smtp.EmailBackend'
@@ -44,6 +49,73 @@ EMAIL_USE_TLS = config('EMAIL_USE_TLS', cast=bool, default=True)
 DEFAULT_FROM_EMAIL = config(
     'DEFAULT_FROM_EMAIL', default=EMAIL_HOST_USER or 'no-reply@rentflow.local'
 )
+
+REDIS_URL = config('REDIS_URL', default='redis://127.0.0.1:6379')
+
+SMS_PROVIDER = config('SMS_PROVIDER', default='africastalking')
+SMS_SIMULATE = config('SMS_SIMULATE', cast=bool, default=True)
+AFRICASTALKING_USERNAME = config('AFRICASTALKING_USERNAME', default='')
+AFRICASTALKING_API_KEY = config('AFRICASTALKING_API_KEY', default='')
+AFRICASTALKING_SENDER_ID = config('AFRICASTALKING_SENDER_ID', default='')
+AFRICASTALKING_WHATSAPP_NUMBER = config('AFRICASTALKING_WHATSAPP_NUMBER', default='')
+
+WHATSAPP_PROVIDER = config('WHATSAPP_PROVIDER', default='africastalking')
+WHATSAPP_SIMULATE = config('WHATSAPP_SIMULATE', cast=bool, default=True)
+WHATSAPP_USE_TEMPLATE = config('WHATSAPP_USE_TEMPLATE', cast=bool, default=False)
+WHATSAPP_TEMPLATE_NAME = config('WHATSAPP_TEMPLATE_NAME', default='')
+WHATSAPP_TEMPLATE_LANGUAGE = config('WHATSAPP_TEMPLATE_LANGUAGE', default='en')
+WHATSAPP_TEMPLATE_CATEGORY = config('WHATSAPP_TEMPLATE_CATEGORY', default='UTILITY')
+WHATSAPP_VERIFY_TTL_MINUTES = config('WHATSAPP_VERIFY_TTL_MINUTES', cast=int, default=10)
+
+NOTIFICATION_CHANNELS = [
+    item.strip()
+    for item in config('NOTIFICATION_CHANNELS', default='email,sms,whatsapp').split(',')
+    if item.strip()
+]
+RENT_REMINDER_DAYS = [
+    item.strip()
+    for item in config('RENT_REMINDER_DAYS', default='-3,0,3,7,15').split(',')
+    if item.strip()
+]
+
+PAYMENT_AUTO_SEND_RECEIPT = config('PAYMENT_AUTO_SEND_RECEIPT', cast=bool, default=False)
+
+# Ops alerts
+OPS_ALERTS_ENABLED = config('OPS_ALERTS_ENABLED', cast=bool, default=False)
+OPS_ALERTS_EMAILS = [
+    item.strip()
+    for item in config('OPS_ALERTS_EMAILS', default='').split(',')
+    if item.strip()
+]
+
+# CinetPay (Billing)
+CINETPAY_ENABLED = config('CINETPAY_ENABLED', cast=bool, default=False)
+CINETPAY_API_KEY = config('CINETPAY_API_KEY', default='')
+CINETPAY_SITE_ID = config('CINETPAY_SITE_ID', default='')
+CINETPAY_SECRET_KEY = config('CINETPAY_SECRET_KEY', default='')
+CINETPAY_BASE_URL = config(
+    'CINETPAY_BASE_URL',
+    default='https://api-checkout.cinetpay.com/v2/payment',
+)
+CINETPAY_CHECK_URL = config(
+    'CINETPAY_CHECK_URL',
+    default='https://api-checkout.cinetpay.com/v2/payment/check',
+)
+CINETPAY_NOTIFY_URL = config(
+    'CINETPAY_NOTIFY_URL',
+    default=f'{API_BASE_URL}/api/v1/billing/cinetpay/webhook/',
+)
+CINETPAY_RETURN_URL = config(
+    'CINETPAY_RETURN_URL',
+    default=f'{FRONTEND_PROTOCOL}://{FRONTEND_DOMAIN}/billing/return',
+)
+CINETPAY_CHANNELS = config('CINETPAY_CHANNELS', default='ALL')
+CINETPAY_LANG = config('CINETPAY_LANG', default='FR')
+CINETPAY_CUSTOMER_COUNTRY = config('CINETPAY_CUSTOMER_COUNTRY', default='BF')
+CINETPAY_CUSTOMER_CITY = config('CINETPAY_CUSTOMER_CITY', default='Ouagadougou')
+CINETPAY_CUSTOMER_ADDRESS = config('CINETPAY_CUSTOMER_ADDRESS', default='N/A')
+CINETPAY_CUSTOMER_ZIP = config('CINETPAY_CUSTOMER_ZIP', default='00000')
+CINETPAY_CUSTOMER_STATE = config('CINETPAY_CUSTOMER_STATE', default='BF')
 
 
 # Application definition
@@ -61,12 +133,16 @@ INSTALLED_APPS = [
     'corsheaders',
     'rest_framework_simplejwt.token_blacklist',
     'axes',
+    'django_celery_beat',
     
     'apps.accounts.apps.AccountsConfig',
     'apps.agencies.apps.AgenciesConfig',
     'apps.leases.apps.LeasesConfig',
     'apps.payments.apps.PaymentsConfig',
     'apps.properties.apps.PropertiesConfig',
+    'apps.notifications.apps.NotificationsConfig',
+    'apps.billing.apps.BillingConfig',
+    'apps.ops.apps.OpsConfig',
 ]
 
 MIDDLEWARE = [
@@ -210,16 +286,28 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/6.0/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = 'fr-fr'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'GMT'
 
 USE_I18N = True
 
 USE_TZ = True
+
+# Celery
+CELERY_BROKER_URL = config('CELERY_BROKER_URL', default=REDIS_URL)
+CELERY_RESULT_BACKEND = config('CELERY_RESULT_BACKEND', default=REDIS_URL)
+CELERY_ACCEPT_CONTENT = ["json"]
+CELERY_TASK_SERIALIZER = "json"
+CELERY_RESULT_SERIALIZER = "json"
+CELERY_TIMEZONE = TIME_ZONE
+CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
 
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'

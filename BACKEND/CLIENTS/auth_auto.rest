@@ -1,0 +1,278 @@
+@apiRoot = http://127.0.0.1:8000/api/v1
+@baseUrl = {{apiRoot}}/auth
+@phone = 51648786
+@email = villeg300@gmail.com
+@fullName = Ludovic Moyenga
+@password = Moyenga@19
+@newPassword = NewS3cretPass#456
+@resetPassword = ResetS3cret#789
+
+@accessToken = {{login_email.response.body.access}}
+@refreshToken = {{login_email.response.body.refresh}}
+@inviteToken = REPLACE_INVITE_TOKEN
+
+# Colle ici les valeurs recuperees dans l'email
+@uid = REPLACE_UID
+@token = REPLACE_TOKEN
+
+############################################
+# 1) INSCRIPTION + ACTIVATION
+############################################
+
+### Inscription
+# @name register
+POST {{baseUrl}}/users/
+Content-Type: application/json
+
+{
+  "phone_number": "{{phone}}",
+  "full_name": "{{fullName}}",
+  "email": "{{email}}",
+  "password": "{{password}}",
+  "re_password": "{{password}}"
+}
+
+### Activation du compte (uid + token depuis l'email)
+POST {{baseUrl}}/users/activation/
+Content-Type: application/json
+
+{
+  "uid": "{{uid}}",
+  "token": "{{token}}"
+}
+
+############################################
+# 2) LOGIN (EMAIL) - TOKENS AUTO
+############################################
+
+### Connexion avec email
+# @name login_email
+POST {{baseUrl}}/jwt/create/
+Content-Type: application/json
+
+{
+  "login": "{{email}}",
+  "password": "{{password}}",
+  "agency_id": "{{create_agency.response.body.id}}"
+}
+
+
+
+### Profil courant
+GET {{baseUrl}}/users/me/
+Authorization: Bearer {{accessToken}}
+
+### Refresh token (rotation active)
+# @name refresh_email
+POST {{baseUrl}}/jwt/refresh/
+Content-Type: application/json
+
+{
+  "refresh": "{{refreshToken}}"
+}
+
+
+### Verifier access token
+POST {{baseUrl}}/jwt/verify/
+Content-Type: application/json
+
+{
+  "token": "{{accessToken}}"
+}
+
+### Deconnexion (blacklist refresh)
+POST {{baseUrl}}/jwt/logout/
+Content-Type: application/json
+
+{
+  "refresh": "{{refreshToken}}"
+}
+
+### Deconnexion globale (tous les appareils)
+POST {{baseUrl}}/jwt/logout_all/
+Authorization: Bearer {{accessToken}}
+
+############################################
+# 3) CHANGEMENT DE MOT DE PASSE
+############################################
+
+### Changement de mot de passe (auth requis)
+POST {{baseUrl}}/users/set_password/
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "current_password": "{{password}}",
+  "new_password": "{{newPassword}}"
+}
+
+### Connexion avec le nouveau mot de passe
+# @name login_new_password
+POST {{baseUrl}}/jwt/create/
+Content-Type: application/json
+
+{
+  "login": "{{email}}",
+  "password": "{{newPassword}}"
+}
+
+############################################
+# 4) MOT DE PASSE OUBLIE
+############################################
+
+### Mot de passe oublie (envoi email)
+POST {{baseUrl}}/users/reset_password/
+Content-Type: application/json
+
+{
+  "email": "{{email}}"
+}
+
+### Confirmer reinitialisation (uid + token depuis l'email)
+POST {{baseUrl}}/users/reset_password_confirm/
+Content-Type: application/json
+
+{
+  "uid": "{{uid}}",
+  "token": "{{token}}",
+  "new_password": "{{resetPassword}}",
+  "re_new_password": "{{resetPassword}}"
+}
+
+### Connexion apres reinitialisation
+POST {{baseUrl}}/jwt/create/
+Content-Type: application/json
+
+{
+  "login": "{{email}}",
+  "password": "{{resetPassword}}"
+}
+
+############################################
+# NOTE
+# - Avec ROTATE_REFRESH_TOKENS=True :
+#   Le refresh token change apres chaque /jwt/refresh/.
+#   Utilise toujours le dernier refresh recu.
+############################################
+
+############################################
+# 5) AGENCES (MULTI-TENANT)
+############################################
+
+### Creer une agence
+# @name create_agency
+POST {{apiRoot}}/agencies/
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "name": "Agence Alpha",
+  "email": "contact@alpha.com",
+  "phone_number": "70000000",
+  "address": "Ouagadougou"
+}
+
+### Lister mes agences (avec mon role)
+GET {{apiRoot}}/agencies/
+Authorization: Bearer {{accessToken}}
+
+### Voir les membres d'une agence (owner/manager)
+GET {{apiRoot}}/agencies/{{create_agency.response.body.id}}/members/
+Authorization: Bearer {{accessToken}}
+
+### Inviter un membre par email (owner/manager)
+# @name invite_member
+POST {{apiRoot}}/agencies/{{create_agency.response.body.id}}/invitations/
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "email": "agent.invite@example.com",
+  "role": "agent",
+  "message": "Bienvenue dans l'equipe."
+}
+
+### Relancer une invitation (regenere le token)
+POST {{apiRoot}}/agencies/{{create_agency.response.body.id}}/invitations/{{invite_member.response.body.id}}/resend/
+Authorization: Bearer {{accessToken}}
+
+### Revoquer une invitation
+POST {{apiRoot}}/agencies/{{create_agency.response.body.id}}/invitations/{{invite_member.response.body.id}}/revoke/
+Authorization: Bearer {{accessToken}}
+
+### Consulter une invitation (public)
+GET {{apiRoot}}/agencies/invitations/{{inviteToken}}/
+
+### Accepter l'invitation (auth requis)
+POST {{apiRoot}}/agencies/invitations/accept/
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "token": "{{inviteToken}}"
+}
+
+### Accepter l'invitation (sans compte: auto inscription)
+POST {{apiRoot}}/agencies/invitations/accept/
+Content-Type: application/json
+
+{
+  "token": "{{inviteToken}}",
+  "full_name": "Nouvel Agent",
+  "phone_number": "0700000099"
+}
+
+############################################
+# 6) MODULES METIER (scopes multi-tenant)
+############################################
+
+### Creer un bien (X-Agency-ID requis)
+# @name create_property
+POST {{apiRoot}}/properties/
+Authorization: Bearer {{accessToken}}
+X-Agency-ID: {{create_agency.response.body.id}}
+Content-Type: application/json
+
+{
+  "title": "Villa Koulouba",
+  "address": "Ouagadougou",
+  "city": "Ouagadougou",
+  "property_type": "house",
+  "rent_amount": "250000",
+  "is_available": true
+}
+
+### Lister les biens de l'agence active
+GET {{apiRoot}}/properties/
+Authorization: Bearer {{accessToken}}
+X-Agency-ID: {{create_agency.response.body.id}}
+
+### Creer un contrat (lease) lie au bien
+# @name create_lease
+POST {{apiRoot}}/leases/
+Authorization: Bearer {{accessToken}}
+X-Agency-ID: {{create_agency.response.body.id}}
+Content-Type: application/json
+
+{
+  "property": "{{create_property.response.body.id}}",
+  "tenant_name": "Abdou",
+  "tenant_phone": "70112233",
+  "tenant_email": "abdou@example.com",
+  "start_date": "2026-04-01",
+  "rent_amount": "250000",
+  "deposit_amount": "250000"
+}
+
+### Creer un paiement
+POST {{apiRoot}}/payments/
+Authorization: Bearer {{accessToken}}
+X-Agency-ID: {{create_agency.response.body.id}}
+Content-Type: application/json
+
+{
+  "lease": "{{create_lease.response.body.id}}",
+  "amount": "250000",
+  "status": "paid",
+  "reference": "CASH-001"
+}

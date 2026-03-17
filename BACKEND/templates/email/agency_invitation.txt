@@ -1,0 +1,13 @@
+Bonjour,
+
+{{ inviter.full_name|default:inviter.phone_number }} vous a invite a rejoindre l'agence {{ agency.name }}.
+
+{% if invitation.message %}
+Message: {{ invitation.message }}
+{% endif %}
+
+Accepter l'invitation: {{ accept_url }}
+
+Ce lien active votre compte et vous ajoute a l'agence.
+
+Cette invitation expire le {{ invitation.expires_at }}.

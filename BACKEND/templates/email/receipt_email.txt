@@ -1,0 +1,14 @@
+Bonjour {{ tenant_name }},
+
+Nous accusons reception de votre paiement.
+
+Quittance: {{ receipt_number }}
+Bien: {{ property_title }}
+Montant: {{ amount }} {{ currency }}
+Date: {{ paid_at }}
+Agence: {{ agency_name }}
+
+Vous trouverez la quittance en piece jointe.
+
+Merci,
+L'equipe {{ agency_name }}

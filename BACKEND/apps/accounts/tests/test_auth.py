@@ -267,3 +267,63 @@ def test_forgot_password_flow(api_client, user):
         format="json",
     )
     assert login_response.status_code == 200
+
+
+@pytest.mark.django_db
+def test_login_wrong_password_logs_audit(api_client, user):
+    response = api_client.post(
+        "/api/v1/auth/jwt/create/",
+        {"login": user.email, "password": "WrongPass#000"},
+        format="json",
+    )
+    assert response.status_code == 401
+    assert AuditLog.objects.filter(action=AuditAction.LOGIN_FAILED).exists()
+
+
+@pytest.mark.django_db
+def test_refresh_reuse_after_rotation_invalid(api_client, user, user_password):
+    login_response = api_client.post(
+        "/api/v1/auth/jwt/create/",
+        {"login": user.phone_number, "password": user_password},
+        format="json",
+    )
+    assert login_response.status_code == 200
+    original_refresh = login_response.data["refresh"]
+
+    refresh_response = api_client.post(
+        "/api/v1/auth/jwt/refresh/", {"refresh": original_refresh}, format="json"
+    )
+    assert refresh_response.status_code == 200
+    assert "refresh" in refresh_response.data
+
+    reuse_response = api_client.post(
+        "/api/v1/auth/jwt/refresh/", {"refresh": original_refresh}, format="json"
+    )
+    assert reuse_response.status_code == 401
+
+
+@pytest.mark.django_db
+def test_password_reset_unknown_email_returns_204(api_client):
+    response = api_client.post(
+        "/api/v1/auth/users/reset_password/",
+        {"email": "unknown@example.com"},
+        format="json",
+    )
+    assert response.status_code == 204
+    assert len(mail.outbox) == 0
+
+
+@pytest.mark.django_db
+def test_users_me_requires_auth(api_client):
+    response = api_client.get("/api/v1/auth/users/me/")
+    assert response.status_code == 401
+
+
+@pytest.mark.django_db
+def test_logout_invalid_refresh(api_client):
+    response = api_client.post(
+        "/api/v1/auth/jwt/logout/",
+        {"refresh": "invalid.refresh.token"},
+        format="json",
+    )
+    assert response.status_code == 401

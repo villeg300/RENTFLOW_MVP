@@ -14,6 +14,8 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
+from django.conf import settings
+from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path
 from apps.accounts.views import (
@@ -26,9 +28,17 @@ from apps.accounts.views import (
     activate_account_view,
     reset_password_view,
 )
+from apps.agencies.views import accept_invitation_view
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('api/<str:version>/', include('apps.agencies.urls')),
+    path('api/<str:version>/', include('apps.properties.urls')),
+    path('api/<str:version>/', include('apps.leases.urls')),
+    path('api/<str:version>/', include('apps.payments.urls')),
+    path('api/<str:version>/', include('apps.notifications.urls')),
+    path('api/<str:version>/', include('apps.billing.urls')),
+    path('api/<str:version>/', include('apps.ops.urls')),
     path('api/<str:version>/auth/jwt/create/', CustomTokenObtainPairView.as_view(), name='jwt_create'),
     path('api/<str:version>/auth/jwt/logout/', CustomLogoutView.as_view(), name='jwt_logout'),
     path('api/<str:version>/auth/jwt/logout_all/', LogoutAllView.as_view(), name='jwt_logout_all'),
@@ -39,4 +49,8 @@ urlpatterns = [
     path('api/<str:version>/auth/', include('djoser.urls.jwt')),
     path('reset-password/', reset_password_view, name='reset_password'),
     path('activate/', activate_account_view, name='activate_account'),
+    path('accept-invite/', accept_invitation_view, name='accept_invite'),
 ]
+
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

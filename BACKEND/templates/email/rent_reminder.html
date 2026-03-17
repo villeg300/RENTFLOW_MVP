@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <title>Rappel de loyer</title>
+  </head>
+  <body>
+    <p>Bonjour {{ tenant_name }},</p>
+    <p>{{ message }}</p>
+    <ul>
+      <li><strong>Bien:</strong> {{ property_title }}</li>
+      <li><strong>Montant:</strong> {{ amount }} {{ currency }}</li>
+      <li><strong>Date d'echeance:</strong> {{ due_date }}</li>
+      <li><strong>Agence:</strong> {{ agency_name }}</li>
+    </ul>
+    <p>Merci.</p>
+  </body>
+</html>

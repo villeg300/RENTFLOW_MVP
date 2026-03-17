@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <title>Quittance de loyer</title>
+  </head>
+  <body>
+    <p>Bonjour {{ tenant_name }},</p>
+    <p>Nous accusons reception de votre paiement.</p>
+    <ul>
+      <li><strong>Quittance:</strong> {{ receipt_number }}</li>
+      <li><strong>Bien:</strong> {{ property_title }}</li>
+      <li><strong>Montant:</strong> {{ amount }} {{ currency }}</li>
+      <li><strong>Date:</strong> {{ paid_at }}</li>
+      <li><strong>Agence:</strong> {{ agency_name }}</li>
+    </ul>
+    <p>Vous trouverez la quittance en piece jointe.</p>
+    <p>Merci,<br />L'equipe {{ agency_name }}</p>
+  </body>
+</html>

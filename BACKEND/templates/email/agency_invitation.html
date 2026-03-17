@@ -1,0 +1,23 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Invitation</title>
+  </head>
+  <body>
+    <p>Bonjour,</p>
+    <p>
+      <strong>{{ inviter.full_name|default:inviter.phone_number }}</strong>
+      vous a invite a rejoindre l'agence <strong>{{ agency.name }}</strong>.
+    </p>
+    {% if invitation.message %}
+    <p>Message: {{ invitation.message }}</p>
+    {% endif %}
+    <p>
+      Cliquez ici pour accepter l'invitation:
+      <a href="{{ accept_url }}">{{ accept_url }}</a>
+    </p>
+    <p>Ce lien active votre compte et vous ajoute a l'agence.</p>
+    <p>Cette invitation expire le {{ invitation.expires_at }}.</p>
+  </body>
+</html>

@@ -9,8 +9,12 @@ django-cors-headers
 Pillow
 redis
 celery
+django-celery-beat
 drf-spectacular
 gunicorn
 pytest
 pytest-django
 django-axes
+reportlab
+africastalking
+requests

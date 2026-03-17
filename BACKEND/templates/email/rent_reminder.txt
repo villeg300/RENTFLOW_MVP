@@ -1,0 +1,10 @@
+Bonjour {{ tenant_name }},
+
+{{ message }}
+
+Bien: {{ property_title }}
+Montant: {{ amount }} {{ currency }}
+Date d'echeance: {{ due_date }}
+Agence: {{ agency_name }}
+
+Merci.
