@@ -1,0 +1,84 @@
+[
+  {
+    "id": 1,
+    "property_title": "Appartement T3 Centre-ville",
+    "status": "active",
+    "start_date": "2024-01-15",
+    "end_date": "2025-01-14",
+    "rent_amount": 75000
+  },
+  {
+    "id": 2,
+    "property_title": "Maison 4 pièces Banlieue",
+    "status": "active",
+    "start_date": "2024-02-01",
+    "end_date": "2025-01-31",
+    "rent_amount": 65000
+  },
+  {
+    "id": 3,
+    "property_title": "Studio Quartier Historique",
+    "status": "ended",
+    "start_date": "2023-06-01",
+    "end_date": "2024-05-31",
+    "rent_amount": 55000
+  },
+  {
+    "id": 4,
+    "property_title": "Duplex Moderne",
+    "status": "active",
+    "start_date": "2024-03-10",
+    "end_date": "2025-03-09",
+    "rent_amount": 85000
+  },
+  {
+    "id": 5,
+    "property_title": "Loft Industriel",
+    "status": "cancelled",
+    "start_date": "2024-01-01",
+    "end_date": "2024-12-31",
+    "rent_amount": 60000
+  },
+  {
+    "id": 6,
+    "property_title": "Villa avec Jardin",
+    "status": "active",
+    "start_date": "2024-04-01",
+    "end_date": "2025-03-31",
+    "rent_amount": 72000
+  },
+  {
+    "id": 7,
+    "property_title": "Appartement T2 Vue Mer",
+    "status": "active",
+    "start_date": "2024-05-15",
+    "end_date": "2025-05-14",
+    "rent_amount": 68000
+  },
+  {
+    "id": 8,
+    "property_title": "Chambre Étudiant",
+    "status": "ended",
+    "start_date": "2023-08-01",
+    "end_date": "2024-07-31",
+    "rent_amount": 58000
+  },
+  {
+    "id": 9,
+    "property_title": "Penthouse Luxe",
+    "status": "active",
+    "start_date": "2024-06-01",
+    "end_date": "2025-05-31",
+    "rent_amount": 79000
+  },
+  {
+    "id": 10,
+    "property_title": "Appartement T3 Familial",
+    "status": "active",
+    "start_date": "2024-07-10",
+    "end_date": "2025-07-09",
+    "rent_amount": 63000
+  }
+]
+
+

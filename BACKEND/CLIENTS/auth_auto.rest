@@ -1,6 +1,6 @@
 @apiRoot = http://127.0.0.1:8000/api/v1
 @baseUrl = {{apiRoot}}/auth
-@phone = 51648786
+@phone = 74372878
 @email = villeg300@gmail.com
 @fullName = Ludovic Moyenga
 @password = Moyenga@19
@@ -51,9 +51,8 @@ POST {{baseUrl}}/jwt/create/
 Content-Type: application/json
 
 {
-  "login": "{{email}}",
-  "password": "{{password}}",
-  "agency_id": "{{create_agency.response.body.id}}"
+  "login": "{{phone}}",
+  "password": "{{password}}"
 }
 
 
@@ -166,9 +165,9 @@ Authorization: Bearer {{accessToken}}
 Content-Type: application/json
 
 {
-  "name": "Agence Alpha",
-  "email": "contact@alpha.com",
-  "phone_number": "70000000",
+  "name": "imo bf",
+  "email": "imo@alpha.com",
+  "phone_number": "52452545",
   "address": "Ouagadougou"
 }
 
@@ -276,3 +275,8 @@ Content-Type: application/json
   "status": "paid",
   "reference": "CASH-001"
 }
+
+### Dashboard
+GET {{apiRoot}}/dashboard/finance/
+Authorization: Bearer {{accessToken}}
+X-Agency-ID: {{create_agency.response.body.id}}
