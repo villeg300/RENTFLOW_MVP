@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuthContext } from "@/context/AuthContext";
 
@@ -33,6 +33,11 @@ export function AuthGuard({
   const { isAuthenticated, isLoading } = useAuthContext();
   const router = useRouter();
   const pathname = usePathname();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (isLoading) return;
@@ -46,6 +51,11 @@ export function AuthGuard({
       router.replace(redirectIfAuthenticated);
     }
   }, [isAuthenticated, isLoading, redirectTo, redirectIfAuthenticated, router, pathname]);
+
+  // ── Hydratation : on évite le mismatch SSR/CSR ───────────────────────────
+  if (!mounted) {
+    return <>{fallback}</>;
+  }
 
   // ── Pendant le chargement → toujours le fallback ─────────────────────────
   if (isLoading) {
