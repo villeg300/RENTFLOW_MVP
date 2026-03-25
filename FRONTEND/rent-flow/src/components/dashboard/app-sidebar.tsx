@@ -38,8 +38,10 @@ import {
   CreditCard,
   Wallet,
   Bell,
+  Sun,
   
 } from "lucide-react"
+import { ThemeSwitch } from "@/components/theme/theme-switch"
 
 
 const data = {
@@ -74,8 +76,8 @@ const data = {
       ),
     },
     {
-      title: "Agences",
-      url: "/dashboard/agences",
+      title: "Mes biens",
+      url: "/dashboard/biens",
       icon: (
         <Building
         />
@@ -231,7 +233,19 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       <SidebarContent>
         <NavMain items={data.navMain} />
         <NavDocuments items={data.documents} />
-        <NavSecondary items={data.navSecondary} className="mt-auto" />
+        <NavSecondary items={data.navSecondary} className="mt-auto">
+          <SidebarMenuItem>
+            <SidebarMenuButton asChild>
+              <div className="flex w-full items-center justify-between">
+                <span className="flex items-center gap-2">
+                  <Sun />
+                  <span>Thème</span>
+                </span>
+                <ThemeSwitch />
+              </div>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </NavSecondary>
       </SidebarContent>
       <SidebarFooter>
         <NavUser />

@@ -15,6 +15,11 @@ export type {
   ApiError,
   ApiFieldErrors,
 } from "@/types/auth.types";
+export type {
+  FinanceDashboard,
+  FinanceDashboardPeriod,
+  FinanceRevenueMonth,
+} from "@/types/finance.types";
 
 // ─── Utils ────────────────────────────────────────────────────────────────────
 export { decodeJwt, isTokenExpired, getTokenTtl } from "@/utils/jwt.utils";
@@ -42,6 +47,7 @@ export {
   confirmPasswordReset,
   changePassword,
 } from "@/services/auth.service";
+export { fetchFinanceDashboard } from "@/services/finance.service";
 
 // ─── Context ──────────────────────────────────────────────────────────────────
 export { AuthProvider, useAuthContext } from "@/context/AuthContext";
@@ -57,6 +63,7 @@ export {
   useConfirmPasswordReset,
   useChangePassword,
 } from "@/hooks/useAuth";
+export { useFinanceDashboard } from "@/hooks/useFinanceDashboard";
 
 // ─── Components ───────────────────────────────────────────────────────────────
 export { AuthGuard } from "@/components/AuthGuard";
