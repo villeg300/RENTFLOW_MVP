@@ -26,6 +26,8 @@ import {
   UsersIcon, 
   CameraIcon, 
   FileTextIcon, 
+  FileClockIcon,
+  TriangleAlertIcon,
   Settings2Icon, 
   CircleHelpIcon, 
   SearchIcon, 
@@ -64,6 +66,22 @@ const data = {
       url: "/dashboard/analytics",
       icon: (
         <ChartBarIcon
+        />
+      ),
+    },
+    {
+      title: "Activités",
+      url: "/dashboard/activities",
+      icon: (
+        <FileClockIcon
+        />
+      ),
+    },
+    {
+      title: "Alertes",
+      url: "/dashboard/alerts",
+      icon: (
+        <TriangleAlertIcon
         />
       ),
     },
