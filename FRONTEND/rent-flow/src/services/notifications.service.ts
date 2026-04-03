@@ -3,6 +3,7 @@ import type {
   BulkReminderResponse,
   NotificationDashboard,
   NotificationLog,
+  ReminderQueueItem,
 } from "@/types/notifications.types"
 
 export interface FetchNotificationLogsParams {
@@ -112,4 +113,17 @@ export async function sendBulkReminders(
   )
 
   return data
+}
+
+export async function fetchReminderQueue(
+  agencyId: string
+): Promise<ReminderQueueItem[]> {
+  const { data } = await apiClient.get<ReminderQueueItem[]>(
+    "/notifications/reminders/queue/",
+    {
+      headers: { "X-Agency-ID": agencyId },
+    }
+  )
+
+  return data ?? []
 }

@@ -38,10 +38,10 @@ import { Textarea } from "@/components/ui/textarea"
 import { useAgencyContext } from "@/context/AgencyContext"
 import { useNotificationDashboard } from "@/hooks/useNotificationDashboard"
 import { useNotificationLogs } from "@/hooks/useNotificationLogs"
-import { apiClient, type NormalizedError } from "@/lib/axios"
+import { useReminderQueue } from "@/hooks/useReminderQueue"
 import { sendLeaseReminder } from "@/services/leases.service"
 import { sendBulkReminders } from "@/services/notifications.service"
-import type { NotificationLog } from "@/types/notifications.types"
+import type { NotificationLog, ReminderQueueItem } from "@/types/notifications.types"
 import type { ColumnDef } from "@tanstack/react-table"
 
 const statusLabels: Record<string, string> = {
@@ -67,15 +67,6 @@ const templateLabels: Record<string, string> = {
   manual_reminder: "Relance manuelle",
 }
 
-const reminderTemplateKeys = new Set([
-  "rent_reminder",
-  "rent_due_soon",
-  "rent_due_today",
-  "rent_overdue",
-  "bulk_reminder",
-  "manual_reminder",
-])
-
 const statusConfig = {
   sent: { label: "Envoyées", color: "var(--chart-2)" },
   pending: { label: "En attente", color: "var(--chart-4)" },
@@ -92,30 +83,6 @@ function formatTemplate(templateKey: string) {
   return templateLabels[templateKey] ?? templateKey.replace(/_/g, " ")
 }
 
-type LeaseSummary = {
-  id: string
-  property: string
-  tenant_name: string
-  tenant_email?: string
-  tenant_phone?: string
-  start_date: string
-  end_date?: string | null
-  rent_amount: number
-  status: string
-}
-
-type PaymentSummary = {
-  id: string
-  lease: string
-  status: string
-  paid_at: string
-}
-
-type PropertySummary = {
-  id: string
-  title: string
-}
-
 type ReminderItem = {
   id: string
   leaseId: string
@@ -126,22 +93,6 @@ type ReminderItem = {
   templateKey: string
   status: "failed" | "overdue"
   scheduledFor?: string
-}
-
-function normalizeListResponse<T>(payload: unknown): T[] {
-  if (Array.isArray(payload)) return payload as T[]
-  if (payload && typeof payload === "object" && "results" in payload) {
-    const results = (payload as { results?: T[] }).results
-    if (Array.isArray(results)) return results
-  }
-  return []
-}
-
-function formatDateKey(date: Date) {
-  const year = date.getFullYear()
-  const month = `${date.getMonth() + 1}`.padStart(2, "0")
-  const day = `${date.getDate()}`.padStart(2, "0")
-  return `${year}-${month}-${day}`
 }
 
 export default function NotificationsPage() {
@@ -190,20 +141,8 @@ export default function NotificationsPage() {
   } | null>(null)
   const [singleError, setSingleError] = React.useState<string | null>(null)
   const [singleLoading, setSingleLoading] = React.useState(false)
-
-  const [reminderSourceState, setReminderSourceState] = React.useState<{
-    leases: LeaseSummary[]
-    payments: PaymentSummary[]
-    properties: PropertySummary[]
-    isLoading: boolean
-    error: NormalizedError | null
-  }>({
-    leases: [],
-    payments: [],
-    properties: [],
-    isLoading: false,
-    error: null,
-  })
+  const [reminderStatusFilter, setReminderStatusFilter] = React.useState("all")
+  const [reminderChannelFilter, setReminderChannelFilter] = React.useState("all")
 
   const dashboardParams = React.useMemo(
     () =>
@@ -239,81 +178,11 @@ export default function NotificationsPage() {
   })
 
   const {
-    data: reminderLogs,
+    data: reminderQueue,
     isLoading: remindersLoading,
     error: remindersError,
     refresh: refreshReminders,
-  } = useNotificationLogs({
-    agencyId: activeAgencyId,
-    limit: 300,
-  })
-
-  const remindersLoadingState = remindersLoading || reminderSourceState.isLoading
-  const remindersErrorState = remindersError || reminderSourceState.error
-
-  React.useEffect(() => {
-    if (!activeAgencyId) {
-      setReminderSourceState({
-        leases: [],
-        payments: [],
-        properties: [],
-        isLoading: false,
-        error: null,
-      })
-      return
-    }
-
-    let isActive = true
-    setReminderSourceState((prev) => ({ ...prev, isLoading: true, error: null }))
-
-    const headers = { "X-Agency-ID": activeAgencyId }
-    const requests = [
-      apiClient.get("/leases/", { headers }),
-      apiClient.get("/payments/", { headers }),
-      apiClient.get("/properties/", { headers }),
-    ]
-
-    Promise.allSettled(requests)
-      .then((results) => {
-        if (!isActive) return
-        const [leasesResult, paymentsResult, propertiesResult] = results
-
-        const leases =
-          leasesResult.status === "fulfilled"
-            ? normalizeListResponse<LeaseSummary>(leasesResult.value.data)
-            : []
-        const payments =
-          paymentsResult.status === "fulfilled"
-            ? normalizeListResponse<PaymentSummary>(paymentsResult.value.data)
-            : []
-        const properties =
-          propertiesResult.status === "fulfilled"
-            ? normalizeListResponse<PropertySummary>(propertiesResult.value.data)
-            : []
-
-        setReminderSourceState({
-          leases,
-          payments,
-          properties,
-          isLoading: false,
-          error: null,
-        })
-      })
-      .catch((error) => {
-        if (!isActive) return
-        setReminderSourceState({
-          leases: [],
-          payments: [],
-          properties: [],
-          isLoading: false,
-          error: error as NormalizedError,
-        })
-      })
-
-    return () => {
-      isActive = false
-    }
-  }, [activeAgencyId])
+  } = useReminderQueue(activeAgencyId)
 
   const dateFormatter = React.useMemo(
     () =>
@@ -333,6 +202,16 @@ export default function NotificationsPage() {
         year: "numeric",
         hour: "2-digit",
         minute: "2-digit",
+      }),
+    []
+  )
+
+  const currencyFormatter = React.useMemo(
+    () =>
+      new Intl.NumberFormat("fr-FR", {
+        style: "currency",
+        currency: "XOF",
+        maximumFractionDigits: 0,
       }),
     []
   )
@@ -404,125 +283,35 @@ export default function NotificationsPage() {
   ]
 
   const reminders = React.useMemo(() => {
-    const todayKey = formatDateKey(new Date())
-    const reminderToday = new Set<string>()
-    const reminderLeaseIds = new Set<string>()
-    const latestReminderByLease = new Map<string, NotificationLog>()
+    return reminderQueue.map((item: ReminderQueueItem) => ({
+      id: item.id,
+      leaseId: item.lease_id,
+      tenantName: item.tenant_name,
+      propertyTitle: item.property_title,
+      amount: item.rent_amount ?? undefined,
+      channel: item.channel ?? undefined,
+      templateKey: item.template_key,
+      status: item.status,
+      scheduledFor: item.scheduled_for ?? undefined,
+    }))
+  }, [reminderQueue])
 
-    reminderLogs.forEach((log) => {
-      if (!log.lease_id) return
-      if (!reminderTemplateKeys.has(log.template_key)) return
-      reminderLeaseIds.add(log.lease_id)
-      if (log.scheduled_for === todayKey) {
-        reminderToday.add(log.lease_id)
+  const remindersCount = React.useMemo(() => {
+    const failed = reminders.filter((item) => item.status === "failed").length
+    const overdue = reminders.filter((item) => item.status === "overdue").length
+    return { total: reminders.length, failed, overdue }
+  }, [reminders])
+
+  const filteredReminders = React.useMemo(() => {
+    return reminders.filter((item) => {
+      if (reminderStatusFilter !== "all" && item.status !== reminderStatusFilter) {
+        return false
       }
-
-      const currentTime = log.scheduled_for
-        ? new Date(log.scheduled_for).getTime()
-        : log.created_at
-          ? new Date(log.created_at).getTime()
-          : 0
-      const existing = latestReminderByLease.get(log.lease_id)
-      if (!existing) {
-        latestReminderByLease.set(log.lease_id, log)
-        return
-      }
-      const existingTime = existing.scheduled_for
-        ? new Date(existing.scheduled_for).getTime()
-        : existing.created_at
-          ? new Date(existing.created_at).getTime()
-          : 0
-      if (currentTime >= existingTime) {
-        latestReminderByLease.set(log.lease_id, log)
-      }
+      if (reminderChannelFilter === "all") return true
+      if (reminderChannelFilter === "none") return !item.channel
+      return item.channel === reminderChannelFilter
     })
-
-    const failedMap = new Map<string, ReminderItem>()
-    latestReminderByLease.forEach((log) => {
-      if (!log.lease_id) return
-      if (log.status !== "failed") return
-      if (log.scheduled_for === todayKey) return
-      if (reminderToday.has(log.lease_id)) return
-
-      failedMap.set(log.lease_id, {
-        id: log.id,
-        leaseId: log.lease_id,
-        tenantName: log.tenant_name || "Locataire",
-        propertyTitle: log.property_title,
-        amount: undefined,
-        channel: log.channel,
-        templateKey: log.template_key,
-        status: "failed",
-        scheduledFor: log.scheduled_for,
-      })
-    })
-
-    const { leases, payments, properties } = reminderSourceState
-    const propertyMap = new Map<string, string>()
-    properties.forEach((property) => {
-      propertyMap.set(property.id, property.title)
-    })
-
-    const today = new Date()
-    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1)
-    const nextMonthStart = new Date(today.getFullYear(), today.getMonth() + 1, 1)
-    const monthStartTime = monthStart.getTime()
-    const nextMonthTime = nextMonthStart.getTime()
-
-    const paidLeaseIds = new Set(
-      payments
-        .filter((payment) => payment.status === "paid")
-        .filter((payment) => {
-          const paidAt = new Date(payment.paid_at).getTime()
-          return paidAt >= monthStartTime && paidAt < nextMonthTime
-        })
-        .map((payment) => payment.lease)
-    )
-
-    const overdueItems: ReminderItem[] = []
-    leases
-      .filter((lease) => lease.status === "active")
-      .forEach((lease) => {
-        if (!lease.start_date) return
-        if (paidLeaseIds.has(lease.id)) return
-        if (reminderLeaseIds.has(lease.id)) return
-        if (reminderToday.has(lease.id)) return
-
-        const startDate = new Date(lease.start_date)
-        if (startDate > today) return
-        if (lease.end_date && new Date(lease.end_date) < monthStart) return
-
-        const dueDay = startDate.getDate()
-        const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate()
-        const dueDate = new Date(today.getFullYear(), today.getMonth(), Math.min(dueDay, lastDay))
-
-        const overdueDays = Math.floor(
-          (new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime() -
-            dueDate.getTime()) /
-            (1000 * 60 * 60 * 24)
-        )
-        if (overdueDays <= 0) return
-        if (failedMap.has(lease.id)) return
-
-        overdueItems.push({
-          id: lease.id,
-          leaseId: lease.id,
-          tenantName: lease.tenant_name || "Locataire",
-          propertyTitle: propertyMap.get(lease.property),
-          amount: Number(lease.rent_amount) || 0,
-          channel: undefined,
-          templateKey: "overdue_payment",
-          status: "overdue",
-          scheduledFor: formatDateKey(dueDate),
-        })
-      })
-
-    return [...failedMap.values(), ...overdueItems].sort((a, b) => {
-      const aTime = a.scheduledFor ? new Date(a.scheduledFor).getTime() : 0
-      const bTime = b.scheduledFor ? new Date(b.scheduledFor).getTime() : 0
-      return bTime - aTime
-    })
-  }, [reminderLogs, reminderSourceState])
+  }, [reminders, reminderStatusFilter, reminderChannelFilter])
 
   const reminderColumns: ColumnDef<ReminderItem>[] = [
     {
@@ -538,6 +327,14 @@ export default function NotificationsPage() {
           </span>
         </div>
       ),
+    },
+    {
+      accessorKey: "amount",
+      header: "Montant",
+      cell: ({ row }) =>
+        row.original.amount !== undefined
+          ? currencyFormatter.format(row.original.amount)
+          : "—",
     },
     {
       accessorKey: "templateKey",
@@ -1007,32 +804,73 @@ export default function NotificationsPage() {
       </Card>
 
       <Card className="@container/card">
-        <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
+        <CardHeader className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="space-y-2">
             <CardTitle>Relances à faire</CardTitle>
             <CardDescription>
-              Notifications en attente ou en échec à relancer
+              Échecs de relance + loyers en retard jamais relancés
             </CardDescription>
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              <Badge variant="outline">Total: {remindersCount.total}</Badge>
+              <Badge variant="destructive">Échecs: {remindersCount.failed}</Badge>
+              <Badge variant="secondary">En retard: {remindersCount.overdue}</Badge>
+            </div>
           </div>
-          <Button type="button" onClick={() => setBulkDialogOpen(true)}>
-            Relance groupée
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Select
+              value={reminderStatusFilter}
+              onValueChange={setReminderStatusFilter}
+            >
+              <SelectTrigger className="w-36" size="sm" aria-label="Filtrer statut">
+                <SelectValue placeholder="Statut" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tous</SelectItem>
+                <SelectItem value="failed">Échecs</SelectItem>
+                <SelectItem value="overdue">En retard</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select
+              value={reminderChannelFilter}
+              onValueChange={setReminderChannelFilter}
+            >
+              <SelectTrigger className="w-36" size="sm" aria-label="Filtrer canal">
+                <SelectValue placeholder="Canal" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tous</SelectItem>
+                <SelectItem value="email">Email</SelectItem>
+                <SelectItem value="sms">SMS</SelectItem>
+                <SelectItem value="whatsapp">WhatsApp</SelectItem>
+                <SelectItem value="none">Non défini</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button type="button" variant="outline" size="sm" onClick={refreshReminders}>
+              Actualiser
+            </Button>
+            <Button type="button" onClick={() => setBulkDialogOpen(true)}>
+              Relance groupée
+            </Button>
+          </div>
         </CardHeader>
-        <CardContent>
-          {remindersLoadingState ? (
+        <CardContent className="space-y-3">
+          <div className="text-xs text-muted-foreground">
+            Après une relance, le locataire disparaît de cette liste pour éviter le spam.
+          </div>
+          {remindersLoading ? (
             <div className="space-y-2">
               {Array.from({ length: 5 }).map((_, index) => (
                 <Skeleton key={index} className="h-10 w-full" />
               ))}
             </div>
-          ) : remindersErrorState ? (
+          ) : remindersError ? (
             <div className="rounded-lg border border-border/60 bg-muted/40 p-4 text-sm text-muted-foreground">
               Impossible de charger les relances.
             </div>
           ) : (
             <DataTable
               columns={reminderColumns}
-              data={reminders}
+              data={filteredReminders}
               pageSize={8}
               initialSorting={[{ id: "scheduledFor", desc: true }]}
               emptyMessage="Aucune relance à faire."
@@ -1171,8 +1009,16 @@ export default function NotificationsPage() {
           <DialogHeader>
             <DialogTitle>Relance individuelle</DialogTitle>
             <DialogDescription>
-              {activeReminder?.tenantName
-                ? `Locataire: ${activeReminder.tenantName}`
+              {activeReminder
+                ? `Locataire: ${activeReminder.tenantName}${
+                    activeReminder.propertyTitle
+                      ? ` • ${activeReminder.propertyTitle}`
+                      : ""
+                  }${
+                    activeReminder.amount !== undefined
+                      ? ` • ${currencyFormatter.format(activeReminder.amount)}`
+                      : ""
+                  }`
                 : "Envoyer un rappel ciblé"}
             </DialogDescription>
           </DialogHeader>

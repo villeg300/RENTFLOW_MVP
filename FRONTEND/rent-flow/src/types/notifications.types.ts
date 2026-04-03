@@ -35,3 +35,15 @@ export interface BulkReminderResponse {
   detail: string
   results: BulkReminderResults
 }
+
+export interface ReminderQueueItem {
+  id: string
+  lease_id: string
+  tenant_name: string
+  property_title?: string
+  rent_amount?: number
+  channel?: string | null
+  template_key: string
+  status: "failed" | "overdue"
+  scheduled_for?: string | null
+}
