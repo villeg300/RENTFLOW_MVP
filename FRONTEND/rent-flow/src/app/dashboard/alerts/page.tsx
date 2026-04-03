@@ -9,12 +9,25 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { DataTable } from "@/components/ui/data-table"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useAgencyContext } from "@/context/AgencyContext"
-import { useAlerts, type AlertItem } from "@/hooks/useAlerts"
+import { useAlerts, type AlertItem, type AlertType } from "@/hooks/useAlerts"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import type { ColumnDef } from "@tanstack/react-table"
 
 export default function AlertsPage() {
   const { activeAgencyId } = useAgencyContext()
   const { data, isLoading } = useAlerts(activeAgencyId, 50)
+  const [alertFilter, setAlertFilter] = React.useState<AlertType | "all">("all")
+
+  const filteredAlerts = React.useMemo(() => {
+    if (alertFilter === "all") return data
+    return data.filter((item) => item.type === alertFilter)
+  }, [alertFilter, data])
 
   const columns: ColumnDef<AlertItem>[] = [
     {
@@ -73,11 +86,28 @@ export default function AlertsPage() {
   return (
     <div className="flex flex-1 flex-col gap-4 p-4 lg:p-6">
       <Card className="@container/card">
-        <CardHeader>
-          <CardTitle>Alertes</CardTitle>
-          <CardDescription>
-            Paiements en attente/échoués et notifications en échec
-          </CardDescription>
+        <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <CardTitle>Alertes</CardTitle>
+            <CardDescription>
+              Paiements en attente/échoués et notifications en échec
+            </CardDescription>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Select
+              value={alertFilter}
+              onValueChange={(value) => setAlertFilter(value as AlertType | "all")}
+            >
+              <SelectTrigger className="w-44" size="sm" aria-label="Filtrer les alertes">
+                <SelectValue placeholder="Filtrer" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Toutes</SelectItem>
+                <SelectItem value="payment">Paiements</SelectItem>
+                <SelectItem value="notification">Notifications</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -89,7 +119,7 @@ export default function AlertsPage() {
           ) : (
             <DataTable
               columns={columns}
-              data={data}
+              data={filteredAlerts}
               pageSize={10}
               initialSorting={[{ id: "date", desc: true }]}
               emptyMessage="Aucune alerte urgente."

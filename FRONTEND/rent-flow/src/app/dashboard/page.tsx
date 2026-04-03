@@ -21,7 +21,7 @@ import {
 import type { ColumnDef } from "@tanstack/react-table"
 
 import { useRecentActivity, type ActivityItem } from "@/hooks/useRecentActivity"
-import { useAlerts, type AlertItem } from "@/hooks/useAlerts"
+import { useAlerts, type AlertItem, type AlertType } from "@/hooks/useAlerts"
 import { useAgencyContext } from "@/context/AgencyContext"
 
 export default function Page() {
@@ -29,11 +29,17 @@ export default function Page() {
   const { data, isLoading } = useRecentActivity(activeAgencyId, 10)
   const { data: alerts, isLoading: alertsLoading } = useAlerts(activeAgencyId, 6)
   const [activityFilter, setActivityFilter] = React.useState<ActivityItem["type"] | "all">("all")
+  const [alertFilter, setAlertFilter] = React.useState<AlertType | "all">("all")
 
   const filteredData = React.useMemo(() => {
     if (activityFilter === "all") return data
     return data.filter((item) => item.type === activityFilter)
   }, [activityFilter, data])
+
+  const filteredAlerts = React.useMemo(() => {
+    if (alertFilter === "all") return alerts
+    return alerts.filter((item) => item.type === alertFilter)
+  }, [alertFilter, alerts])
 
   const columns: ColumnDef<ActivityItem>[] = [
     {
@@ -182,17 +188,34 @@ export default function Page() {
               </div>
               <div className="px-4 lg:px-6">
                 <Card className="@container/card">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      Alertes & actions urgentes
-                      <Badge variant={alerts.length ? "destructive" : "outline"}>
-                        {alerts.length}
-                      </Badge>
-                    </CardTitle>
-                    <CardDescription>
-                      Paiements en attente/échoués et notifications en échec
-                    </CardDescription>
-                    <CardAction>
+                  <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <CardTitle className="flex items-center gap-2">
+                        Alertes & actions urgentes
+                        <Badge variant={alerts.length ? "destructive" : "outline"}>
+                          {alerts.length}
+                        </Badge>
+                      </CardTitle>
+                      <CardDescription>
+                        Paiements en attente/échoués et notifications en échec
+                      </CardDescription>
+                    </div>
+                    <CardAction className="flex flex-wrap items-center gap-2">
+                      <Select
+                        value={alertFilter}
+                        onValueChange={(value) =>
+                          setAlertFilter(value as AlertType | "all")
+                        }
+                      >
+                        <SelectTrigger className="w-44" size="sm" aria-label="Filtrer les alertes">
+                          <SelectValue placeholder="Filtrer" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Toutes</SelectItem>
+                          <SelectItem value="payment">Paiements</SelectItem>
+                          <SelectItem value="notification">Notifications</SelectItem>
+                        </SelectContent>
+                      </Select>
                       <Button asChild variant="outline" size="sm">
                         <Link href="/dashboard/alerts">Voir toutes les alertes</Link>
                       </Button>
@@ -208,7 +231,7 @@ export default function Page() {
                     ) : (
                       <DataTable
                         columns={alertColumns}
-                        data={alerts}
+                        data={filteredAlerts}
                         pageSize={4}
                         initialSorting={[{ id: "date", desc: true }]}
                         emptyMessage="Aucune alerte urgente."
