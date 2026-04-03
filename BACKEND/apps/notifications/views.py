@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 
+from django.conf import settings
 from django.db.models import Count, Q
 from django.utils import timezone
 from rest_framework import viewsets
@@ -134,6 +135,7 @@ class NotificationReminderQueueView(AgencyScopedMixin, viewsets.ViewSet):
     def list(self, request, *args, **kwargs):
         agency = self.get_agency()
         today = timezone.localdate()
+        cooldown_days = getattr(settings, "REMINDER_COOLDOWN_DAYS", 1)
 
         logs_qs = NotificationLog.objects.filter(
             agency=agency, template_key__in=REMINDER_TEMPLATE_KEYS
@@ -226,7 +228,15 @@ class NotificationReminderQueueView(AgencyScopedMixin, viewsets.ViewSet):
                 }
             )
 
-        return Response(items)
+        return Response(
+            {
+                "meta": {
+                    "cooldown_days": cooldown_days,
+                    "generated_at": timezone.now().isoformat(),
+                },
+                "items": items,
+            }
+        )
 
 
 class NotificationBulkReminderView(AgencyScopedMixin, viewsets.ViewSet):
