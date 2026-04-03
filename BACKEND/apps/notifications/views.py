@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 
-from django.db.models import Count
+from django.db.models import Count, Q
 from django.utils import timezone
 from rest_framework import viewsets
 from rest_framework.exceptions import ValidationError
@@ -11,9 +11,28 @@ from apps.agencies.mixins import AgencyScopedMixin
 from apps.agencies.permissions import IsAgencyMember
 
 from apps.agencies.permissions import IsAgencyOperator
-from .models import NotificationLog
+from apps.leases.models import Lease, LeaseStatus
+from apps.payments.models import Payment, PaymentStatus
+from .models import NotificationLog, NotificationStatus
 from .services.reminders import send_bulk_reminders
 from .serializers import NotificationLogSerializer
+
+REMINDER_TEMPLATE_KEYS = {
+    "rent_due_soon",
+    "rent_due_today",
+    "rent_overdue",
+    "rent_reminder",
+    "bulk_reminder",
+    "manual_reminder",
+}
+
+
+def _month_due_date(base_date, due_day):
+    if due_day < 1:
+        due_day = 1
+    next_month = base_date.replace(day=28) + timedelta(days=4)
+    last_day = (next_month.replace(day=1) - timedelta(days=1)).day
+    return base_date.replace(day=min(due_day, last_day))
 
 
 class NotificationLogViewSet(AgencyScopedMixin, viewsets.ReadOnlyModelViewSet):
@@ -107,6 +126,105 @@ class NotificationDashboardView(AgencyScopedMixin, viewsets.ViewSet):
                 "by_channel": by_channel,
             }
         )
+
+
+class NotificationReminderQueueView(AgencyScopedMixin, viewsets.ViewSet):
+    permission_classes = [IsAuthenticated, IsAgencyMember]
+
+    def list(self, request, *args, **kwargs):
+        agency = self.get_agency()
+        today = timezone.localdate()
+
+        logs_qs = NotificationLog.objects.filter(
+            agency=agency, template_key__in=REMINDER_TEMPLATE_KEYS
+        ).select_related("lease", "lease__property")
+
+        reminder_today_ids = set(
+            logs_qs.filter(scheduled_for=today).values_list("lease_id", flat=True)
+        )
+
+        latest_by_lease = {}
+        for log in logs_qs.order_by("-scheduled_for", "-created_at"):
+            if log.lease_id not in latest_by_lease:
+                latest_by_lease[log.lease_id] = log
+
+        items = []
+        failed_lease_ids = set()
+        for log in latest_by_lease.values():
+            if log.status != NotificationStatus.FAILED:
+                continue
+            if log.lease_id in reminder_today_ids:
+                continue
+            lease = log.lease
+            if not lease:
+                continue
+            items.append(
+                {
+                    "id": str(log.id),
+                    "lease_id": str(log.lease_id),
+                    "tenant_name": log.tenant_name or lease.tenant_name,
+                    "property_title": log.property_title
+                    or (lease.property.title if lease.property else ""),
+                    "rent_amount": float(lease.rent_amount or 0),
+                    "channel": log.channel,
+                    "template_key": log.template_key,
+                    "status": "failed",
+                    "scheduled_for": log.scheduled_for.isoformat()
+                    if log.scheduled_for
+                    else None,
+                }
+            )
+            failed_lease_ids.add(log.lease_id)
+
+        reminded_lease_ids = set(latest_by_lease.keys())
+
+        month_start = today.replace(day=1)
+        next_month = (month_start.replace(day=28) + timedelta(days=4)).replace(day=1)
+
+        paid_lease_ids = set(
+            Payment.objects.filter(
+                agency=agency,
+                status=PaymentStatus.PAID,
+                paid_at__date__gte=month_start,
+                paid_at__date__lt=next_month,
+            ).values_list("lease_id", flat=True)
+        )
+
+        active_leases = (
+            Lease.objects.filter(agency=agency, status=LeaseStatus.ACTIVE)
+            .select_related("property")
+            .filter(start_date__lte=today)
+            .filter(Q(end_date__isnull=True) | Q(end_date__gte=month_start))
+        )
+
+        for lease in active_leases.exclude(id__in=paid_lease_ids):
+            if lease.id in reminded_lease_ids:
+                continue
+            if lease.id in failed_lease_ids:
+                continue
+            if lease.id in reminder_today_ids:
+                continue
+
+            due_date = _month_due_date(today, lease.start_date.day)
+            overdue_days = (today - due_date).days
+            if overdue_days <= 0:
+                continue
+
+            items.append(
+                {
+                    "id": str(lease.id),
+                    "lease_id": str(lease.id),
+                    "tenant_name": lease.tenant_name,
+                    "property_title": lease.property.title if lease.property else "",
+                    "rent_amount": float(lease.rent_amount or 0),
+                    "channel": None,
+                    "template_key": "overdue_payment",
+                    "status": "overdue",
+                    "scheduled_for": due_date.isoformat(),
+                }
+            )
+
+        return Response(items)
 
 
 class NotificationBulkReminderView(AgencyScopedMixin, viewsets.ViewSet):

@@ -18,6 +18,27 @@ from .email import EmailService
 from .sms import SMSService
 from .whatsapp import WhatsAppService
 
+REMINDER_TEMPLATE_KEYS = {
+    "rent_due_soon",
+    "rent_due_today",
+    "rent_overdue",
+    "rent_reminder",
+    "bulk_reminder",
+    "manual_reminder",
+}
+
+
+def _has_recent_reminder(lease, today, cooldown_days=1):
+    if cooldown_days < 1:
+        cooldown_days = 1
+    start_date = today - timedelta(days=cooldown_days - 1)
+    return NotificationLog.objects.filter(
+        lease=lease,
+        scheduled_for__gte=start_date,
+        scheduled_for__lte=today,
+        template_key__in=REMINDER_TEMPLATE_KEYS,
+    ).exists()
+
 
 def _parse_reminder_days(raw=None):
     if raw is None:
@@ -73,6 +94,7 @@ def _build_message(template_key, lease, due_date, offset):
 
 def send_rent_reminders(today=None):
     today = today or timezone.localdate()
+    cooldown_days = getattr(settings, "REMINDER_COOLDOWN_DAYS", 1)
     reminder_days = _parse_reminder_days()
     base_channels = getattr(
         settings, "NOTIFICATION_CHANNELS", ["email", "sms", "whatsapp"]
@@ -92,6 +114,8 @@ def send_rent_reminders(today=None):
         if lease.start_date and lease.start_date > today:
             continue
         due_date = _get_month_due_date(today, lease.start_date.day)
+        if _has_recent_reminder(lease, today, cooldown_days=cooldown_days):
+            continue
         if _has_payment_for_month(lease, due_date):
             continue
 
@@ -214,6 +238,11 @@ def send_manual_reminder(lease, channels=None, message=None, template_key="manua
         channels = getattr(settings, "NOTIFICATION_CHANNELS", ["email", "sms", "whatsapp"])
     if isinstance(channels, str):
         channels = [c.strip() for c in channels.split(",") if c.strip()]
+    today = timezone.localdate()
+    cooldown_days = getattr(settings, "REMINDER_COOLDOWN_DAYS", 1)
+
+    if _has_recent_reminder(lease, today, cooldown_days=cooldown_days):
+        return {"sent": 0, "failed": 0, "skipped": len(channels)}
 
     tenant_email = lease.tenant_email or (lease.tenant.email if lease.tenant else "")
     tenant_phone = lease.tenant_phone or (lease.tenant.phone_number if lease.tenant else "")
