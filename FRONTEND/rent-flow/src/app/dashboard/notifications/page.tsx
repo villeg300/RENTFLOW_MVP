@@ -347,7 +347,8 @@ export default function NotificationsPage() {
   ]
 
   const reminders = React.useMemo(() => {
-    const mapped = reminderQueue.map((item: ReminderQueueItem) => ({
+    const queueItems = Array.isArray(reminderQueue) ? reminderQueue : []
+    const mapped = queueItems.map((item: ReminderQueueItem) => ({
       id: item.id,
       leaseId: item.lease_id,
       tenantName: item.tenant_name,
