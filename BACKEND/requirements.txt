@@ -18,3 +18,4 @@ django-axes
 reportlab
 africastalking
 requests
+Faker
