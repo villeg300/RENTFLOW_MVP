@@ -3,6 +3,7 @@
 import * as React from "react"
 import Link from "next/link"
 import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, XAxis, YAxis } from "recharts"
+import { toast } from "sonner"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -144,6 +145,22 @@ export default function NotificationsPage() {
   const [reminderStatusFilter, setReminderStatusFilter] = React.useState("all")
   const [reminderChannelFilter, setReminderChannelFilter] = React.useState("all")
 
+  const bulkChannelSummary = React.useMemo(() => {
+    const selected = Object.entries(bulkChannels)
+      .filter(([, enabled]) => enabled)
+      .map(([key]) => channelLabels[key] ?? key)
+    return selected.length ? selected.join(", ") : "Aucun canal"
+  }, [bulkChannels])
+
+  const bulkFiltersSummary = React.useMemo(() => {
+    const parts: string[] = []
+    if (bulkDueDate) parts.push(`Date d'échéance: ${bulkDueDate}`)
+    if (bulkOnlyOverdue) parts.push("Uniquement les retards")
+    if (bulkMinDays) parts.push(`Retard min: ${bulkMinDays}j`)
+    if (bulkMaxDays) parts.push(`Retard max: ${bulkMaxDays}j`)
+    return parts.length ? parts.join(" • ") : "Aucun filtre spécifique"
+  }, [bulkDueDate, bulkOnlyOverdue, bulkMinDays, bulkMaxDays])
+
   const dashboardParams = React.useMemo(
     () =>
       dashboardFrom && dashboardTo
@@ -283,7 +300,7 @@ export default function NotificationsPage() {
   ]
 
   const reminders = React.useMemo(() => {
-    return reminderQueue.map((item: ReminderQueueItem) => ({
+    const mapped = reminderQueue.map((item: ReminderQueueItem) => ({
       id: item.id,
       leaseId: item.lease_id,
       tenantName: item.tenant_name,
@@ -294,6 +311,11 @@ export default function NotificationsPage() {
       status: item.status,
       scheduledFor: item.scheduled_for ?? undefined,
     }))
+    return mapped.sort((a, b) => {
+      const aTime = a.scheduledFor ? new Date(a.scheduledFor).getTime() : 0
+      const bTime = b.scheduledFor ? new Date(b.scheduledFor).getTime() : 0
+      return bTime - aTime
+    })
   }, [reminderQueue])
 
   const remindersCount = React.useMemo(() => {
@@ -438,12 +460,21 @@ export default function NotificationsPage() {
       setSingleResult(result.results)
       refreshLogs()
       refreshReminders()
+      const summary = `Envoyées: ${result.results.sent} • Échouées: ${result.results.failed} • Ignorées: ${result.results.skipped}`
+      if (result.results.sent > 0 && result.results.failed === 0) {
+        toast.success("Relance envoyée", { description: summary })
+      } else {
+        toast.error("Relance incomplète", { description: summary })
+      }
+      setSingleDialogOpen(false)
     } catch (error) {
       const message =
         typeof error === "object" && error && "message" in error
           ? String((error as { message?: string }).message)
           : "Une erreur est survenue."
       setSingleError(message)
+      toast.error("Relance échouée", { description: message })
+      setSingleDialogOpen(false)
     } finally {
       setSingleLoading(false)
     }
@@ -479,12 +510,22 @@ export default function NotificationsPage() {
       setBulkResult(result.results)
       refreshLogs()
       refreshReminders()
+
+      const summary = `Envoyées: ${result.results.sent} • Échouées: ${result.results.failed} • Ignorées: ${result.results.skipped}`
+      if (result.results.sent > 0 && result.results.failed === 0) {
+        toast.success("Relance groupée envoyée", { description: summary })
+      } else {
+        toast.error("Relance groupée incomplète", { description: summary })
+      }
+      setBulkDialogOpen(false)
     } catch (error) {
       const message =
         typeof error === "object" && error && "message" in error
           ? String((error as { message?: string }).message)
           : "Une erreur est survenue."
       setBulkError(message)
+      toast.error("Relance groupée échouée", { description: message })
+      setBulkDialogOpen(false)
     } finally {
       setBulkLoading(false)
     }
@@ -889,17 +930,59 @@ export default function NotificationsPage() {
           }
         }}
       >
-        <DialogContent>
+        <DialogContent className="sm:max-w-xl">
           <DialogHeader>
             <DialogTitle>Relance groupée</DialogTitle>
             <DialogDescription>
-              Envoyer un rappel groupé aux locataires selon le retard.
+              Envoyer un rappel groupé aux locataires selon vos critères.
             </DialogDescription>
           </DialogHeader>
           <form className="grid gap-4" onSubmit={handleBulkSubmit}>
+            <div className="rounded-lg border border-border/60 bg-muted/30 p-4">
+              <div className="text-xs font-medium text-muted-foreground">Ciblage</div>
+              <div className="mt-3 grid gap-3 md:grid-cols-3">
+                <div className="grid gap-1 text-xs">
+                  <Label htmlFor="bulk-due-date">Date d&apos;échéance</Label>
+                  <Input
+                    id="bulk-due-date"
+                    type="date"
+                    value={bulkDueDate}
+                    onChange={(event) => setBulkDueDate(event.target.value)}
+                  />
+                </div>
+                <div className="grid gap-1 text-xs">
+                  <Label htmlFor="bulk-min-days">Retard min (jours)</Label>
+                  <Input
+                    id="bulk-min-days"
+                    type="number"
+                    min={0}
+                    value={bulkMinDays}
+                    onChange={(event) => setBulkMinDays(event.target.value)}
+                  />
+                </div>
+                <div className="grid gap-1 text-xs">
+                  <Label htmlFor="bulk-max-days">Retard max (jours)</Label>
+                  <Input
+                    id="bulk-max-days"
+                    type="number"
+                    min={0}
+                    value={bulkMaxDays}
+                    onChange={(event) => setBulkMaxDays(event.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="mt-3 flex items-center gap-3">
+                <Switch
+                  id="bulk-only-overdue"
+                  checked={bulkOnlyOverdue}
+                  onCheckedChange={setBulkOnlyOverdue}
+                />
+                <Label htmlFor="bulk-only-overdue">Uniquement les retards</Label>
+              </div>
+            </div>
             <div className="grid gap-2">
-              <Label>Canaux</Label>
-              <div className="flex flex-wrap gap-4 text-sm">
+              <Label>Canaux d&apos;envoi</Label>
+              <div className="grid gap-2 sm:grid-cols-3">
                 {(
                   [
                     { key: "email", label: "Email" },
@@ -907,7 +990,10 @@ export default function NotificationsPage() {
                     { key: "whatsapp", label: "WhatsApp" },
                   ] as const
                 ).map((channel) => (
-                  <label key={channel.key} className="flex items-center gap-2">
+                  <label
+                    key={channel.key}
+                    className="flex items-center gap-2 rounded-lg border border-border/60 px-3 py-2 text-sm"
+                  >
                     <Checkbox
                       checked={bulkChannels[channel.key]}
                       onCheckedChange={(value) =>
@@ -923,7 +1009,7 @@ export default function NotificationsPage() {
               </div>
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="bulk-message">Message</Label>
+              <Label htmlFor="bulk-message">Message personnalisé</Label>
               <Textarea
                 id="bulk-message"
                 value={bulkMessage}
@@ -931,48 +1017,13 @@ export default function NotificationsPage() {
                 placeholder="Rappel: votre loyer de {amount} XOF pour {property_title} est dû le {due_date}."
               />
               <p className="text-xs text-muted-foreground">
-                Variables disponibles: {"{tenant_name}"} • {"{amount}"} •{" "}
-                {"{property_title}"} • {"{due_date}"} • {"{overdue_days}"}
+                Laissez vide pour utiliser le message par défaut. Variables: {"{tenant_name}"} •{" "}
+                {"{amount}"} • {"{property_title}"} • {"{due_date}"} • {"{overdue_days}"}
               </p>
             </div>
-            <div className="grid gap-3 md:grid-cols-3">
-              <div className="grid gap-1 text-xs">
-                <Label htmlFor="bulk-due-date">Date d&apos;échéance</Label>
-                <Input
-                  id="bulk-due-date"
-                  type="date"
-                  value={bulkDueDate}
-                  onChange={(event) => setBulkDueDate(event.target.value)}
-                />
-              </div>
-              <div className="grid gap-1 text-xs">
-                <Label htmlFor="bulk-min-days">Retard min (jours)</Label>
-                <Input
-                  id="bulk-min-days"
-                  type="number"
-                  min={0}
-                  value={bulkMinDays}
-                  onChange={(event) => setBulkMinDays(event.target.value)}
-                />
-              </div>
-              <div className="grid gap-1 text-xs">
-                <Label htmlFor="bulk-max-days">Retard max (jours)</Label>
-                <Input
-                  id="bulk-max-days"
-                  type="number"
-                  min={0}
-                  value={bulkMaxDays}
-                  onChange={(event) => setBulkMaxDays(event.target.value)}
-                />
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <Switch
-                id="bulk-only-overdue"
-                checked={bulkOnlyOverdue}
-                onCheckedChange={setBulkOnlyOverdue}
-              />
-              <Label htmlFor="bulk-only-overdue">Uniquement les retards</Label>
+            <div className="rounded-lg border border-border/60 bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+              <span className="font-medium text-foreground">Résumé</span> — Canaux:{" "}
+              {bulkChannelSummary} • {bulkFiltersSummary}
             </div>
             {bulkError ? (
               <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
@@ -1005,7 +1056,7 @@ export default function NotificationsPage() {
           }
         }}
       >
-        <DialogContent>
+        <DialogContent className="sm:max-w-xl">
           <DialogHeader>
             <DialogTitle>Relance individuelle</DialogTitle>
             <DialogDescription>
@@ -1013,7 +1064,7 @@ export default function NotificationsPage() {
                 ? `Locataire: ${activeReminder.tenantName}${
                     activeReminder.propertyTitle
                       ? ` • ${activeReminder.propertyTitle}`
-                      : ""
+                    : ""
                   }${
                     activeReminder.amount !== undefined
                       ? ` • ${currencyFormatter.format(activeReminder.amount)}`
@@ -1022,10 +1073,52 @@ export default function NotificationsPage() {
                 : "Envoyer un rappel ciblé"}
             </DialogDescription>
           </DialogHeader>
+          {activeReminder ? (
+            <div className="rounded-lg border border-border/60 bg-muted/30 p-4 text-xs">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant={activeReminder.status === "failed" ? "destructive" : "secondary"}>
+                  {activeReminder.status === "failed" ? "Échec de relance" : "Paiement en retard"}
+                </Badge>
+                {activeReminder.scheduledFor ? (
+                  <Badge variant="outline">
+                    Échéance: {dateFormatter.format(new Date(activeReminder.scheduledFor))}
+                  </Badge>
+                ) : null}
+              </div>
+              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                <div className="space-y-1">
+                  <div className="text-muted-foreground">Locataire</div>
+                  <div className="font-medium text-foreground">{activeReminder.tenantName}</div>
+                </div>
+                <div className="space-y-1">
+                  <div className="text-muted-foreground">Bien</div>
+                  <div className="font-medium text-foreground">
+                    {activeReminder.propertyTitle || "Non renseigné"}
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <div className="text-muted-foreground">Montant</div>
+                  <div className="font-medium text-foreground">
+                    {activeReminder.amount !== undefined
+                      ? currencyFormatter.format(activeReminder.amount)
+                      : "—"}
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <div className="text-muted-foreground">Type</div>
+                  <div className="font-medium text-foreground">
+                    {activeReminder.templateKey === "overdue_payment"
+                      ? "Paiement en retard"
+                      : formatTemplate(activeReminder.templateKey)}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : null}
           <form className="grid gap-4" onSubmit={handleSingleSubmit}>
             <div className="grid gap-2">
-              <Label>Canaux</Label>
-              <div className="flex flex-wrap gap-4 text-sm">
+              <Label>Canaux d&apos;envoi</Label>
+              <div className="grid gap-2 sm:grid-cols-3">
                 {(
                   [
                     { key: "email", label: "Email" },
@@ -1033,7 +1126,10 @@ export default function NotificationsPage() {
                     { key: "whatsapp", label: "WhatsApp" },
                   ] as const
                 ).map((channel) => (
-                  <label key={channel.key} className="flex items-center gap-2">
+                  <label
+                    key={channel.key}
+                    className="flex items-center gap-2 rounded-lg border border-border/60 px-3 py-2 text-sm"
+                  >
                     <Checkbox
                       checked={singleChannels[channel.key]}
                       onCheckedChange={(value) =>
@@ -1049,7 +1145,7 @@ export default function NotificationsPage() {
               </div>
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="single-message">Message</Label>
+              <Label htmlFor="single-message">Message personnalisé</Label>
               <Textarea
                 id="single-message"
                 value={singleMessage}
@@ -1057,8 +1153,8 @@ export default function NotificationsPage() {
                 placeholder="Rappel: votre loyer de {amount} XOF pour {property_title} est dû le {due_date}."
               />
               <p className="text-xs text-muted-foreground">
-                Variables disponibles: {"{tenant_name}"} • {"{amount}"} •{" "}
-                {"{property_title}"} • {"{due_date}"} • {"{overdue_days}"}
+                Laissez vide pour utiliser le message par défaut. Variables: {"{tenant_name}"} •{" "}
+                {"{amount}"} • {"{property_title}"} • {"{due_date}"} • {"{overdue_days}"}
               </p>
             </div>
             {singleError ? (
