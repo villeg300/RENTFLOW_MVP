@@ -121,6 +121,39 @@ class Property(models.Model):
         return f"{self.title} ({self.agency})"
 
 
+class PropertyImage(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    agency = models.ForeignKey(
+        Agency, on_delete=models.CASCADE, related_name="property_images"
+    )
+    property = models.ForeignKey(
+        Property, on_delete=models.CASCADE, related_name="images"
+    )
+    image = models.ImageField(upload_to="properties/%Y/%m/")
+    caption = models.CharField(max_length=255, blank=True)
+    is_primary = models.BooleanField(default=False)
+    sort_order = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-is_primary", "sort_order", "-created_at"]
+        verbose_name = "Property image"
+        verbose_name_plural = "Property images"
+
+    def save(self, *args, **kwargs):
+        if self.property_id and self.agency_id is None:
+            self.agency = self.property.agency
+        super().save(*args, **kwargs)
+        if self.is_primary:
+            PropertyImage.objects.filter(property=self.property).exclude(
+                pk=self.pk
+            ).update(is_primary=False)
+
+    def __str__(self):
+        return f"Image - {self.property}"
+
+
 class Listing(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     agency = models.ForeignKey(

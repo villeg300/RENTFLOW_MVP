@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.utils import timezone
 
-from .models import Building, Listing, ListingStatus, Property, Room
+from .models import Building, Listing, ListingStatus, Property, PropertyImage, Room
 
 
 class BuildingSerializer(serializers.ModelSerializer):
@@ -27,6 +27,8 @@ class BuildingSerializer(serializers.ModelSerializer):
 
 
 class PropertySerializer(serializers.ModelSerializer):
+    images = serializers.SerializerMethodField()
+
     class Meta:
         model = Property
         fields = (
@@ -65,6 +67,7 @@ class PropertySerializer(serializers.ModelSerializer):
             "rent_amount",
             "is_available",
             "description",
+            "images",
             "created_at",
             "updated_at",
         )
@@ -80,6 +83,13 @@ class PropertySerializer(serializers.ModelSerializer):
                 "Cet immeuble n'appartient pas a l'agence active."
             )
         return value
+
+    def get_images(self, obj):
+        images = getattr(obj, "images", None)
+        if images is None:
+            return []
+        serializer = PropertyImageSerializer(images.all(), many=True, context=self.context)
+        return serializer.data
 
 
 class ListingSerializer(serializers.ModelSerializer):
@@ -125,6 +135,34 @@ class ListingSerializer(serializers.ModelSerializer):
         if status == ListingStatus.PUBLISHED and not attrs.get("published_at"):
             attrs["published_at"] = timezone.now()
         return attrs
+
+
+class PropertyImageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PropertyImage
+        fields = (
+            "id",
+            "agency",
+            "property",
+            "image",
+            "caption",
+            "is_primary",
+            "sort_order",
+            "created_at",
+            "updated_at",
+        )
+        read_only_fields = ("id", "agency", "created_at", "updated_at")
+
+    def validate_property(self, value):
+        agency = self.context.get("agency")
+        if not agency:
+            request = self.context.get("request")
+            agency = getattr(request, "agency", None) if request else None
+        if agency and value.agency_id != agency.id:
+            raise serializers.ValidationError(
+                "Ce bien n'appartient pas a l'agence active."
+            )
+        return value
 
 
 class ListingPublicSerializer(serializers.ModelSerializer):
@@ -212,6 +250,17 @@ class RoomSerializer(serializers.ModelSerializer):
             "updated_at",
         )
         read_only_fields = ("id", "created_at", "updated_at")
+
+    def validate_property(self, value):
+        agency = self.context.get("agency")
+        if not agency:
+            request = self.context.get("request")
+            agency = getattr(request, "agency", None) if request else None
+        if agency and value.agency_id != agency.id:
+            raise serializers.ValidationError(
+                "Ce bien n'appartient pas a l'agence active."
+            )
+        return value
 
     def validate_property(self, value):
         agency = self.context.get("agency")

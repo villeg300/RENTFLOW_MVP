@@ -995,7 +995,7 @@ export default function NotificationsPage() {
           }
         }}
       >
-        <DialogContent className="sm:max-w-xl">
+        <DialogContent className="sm:max-w-xl max-h-[85vh] overflow-y-auto no-scrollbar">
           <DialogHeader>
             <DialogTitle>Relance groupée</DialogTitle>
             <DialogDescription>
@@ -1132,7 +1132,7 @@ export default function NotificationsPage() {
           }
         }}
       >
-        <DialogContent className="sm:max-w-xl">
+        <DialogContent className="sm:max-w-xl max-h-[85vh] overflow-y-auto no-scrollbar">
           <DialogHeader>
             <DialogTitle>Relance individuelle</DialogTitle>
             <DialogDescription>

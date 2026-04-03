@@ -37,6 +37,7 @@ import {
   FileIcon, 
   CommandIcon, 
   Building,
+  Building2Icon,
   CreditCard,
   Wallet,
   Bell,
@@ -98,6 +99,14 @@ const data = {
       url: "/dashboard/biens",
       icon: (
         <Building
+        />
+      ),
+    },
+    {
+      title: "Immeubles",
+      url: "/dashboard/biens/immeubles",
+      icon: (
+        <Building2Icon
         />
       ),
     },

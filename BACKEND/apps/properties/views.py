@@ -17,12 +17,13 @@ from django.db.models.functions import (
 from apps.agencies.mixins import AgencyScopedMixin
 from apps.agencies.permissions import IsAgencyMember, IsAgencyOperator
 
-from .models import Building, Listing, ListingStatus, Property, Room
+from .models import Building, Listing, ListingStatus, Property, PropertyImage, Room
 from .serializers import (
     BuildingSerializer,
     ListingPublicSerializer,
     ListingSerializer,
     PropertySerializer,
+    PropertyImageSerializer,
     RoomSerializer,
 )
 
@@ -39,7 +40,7 @@ class BuildingViewSet(AgencyScopedMixin, viewsets.ModelViewSet):
 
 
 class PropertyViewSet(AgencyScopedMixin, viewsets.ModelViewSet):
-    queryset = Property.objects.all()
+    queryset = Property.objects.prefetch_related("images")
     serializer_class = PropertySerializer
     permission_classes = [IsAuthenticated, IsAgencyMember]
 
@@ -47,6 +48,27 @@ class PropertyViewSet(AgencyScopedMixin, viewsets.ModelViewSet):
         if self.action in ("create", "update", "partial_update", "destroy"):
             return [IsAuthenticated(), IsAgencyOperator()]
         return super().get_permissions()
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        params = self.request.query_params
+
+        building_id = params.get("building_id")
+        if building_id:
+            queryset = queryset.filter(building_id=building_id)
+
+        property_type = params.get("property_type")
+        if property_type:
+            queryset = queryset.filter(property_type=property_type)
+
+        is_available = params.get("is_available")
+        if is_available is not None:
+            if is_available.lower() in ("true", "1", "yes"):
+                queryset = queryset.filter(is_available=True)
+            elif is_available.lower() in ("false", "0", "no"):
+                queryset = queryset.filter(is_available=False)
+
+        return queryset
 
 
 class ListingViewSet(AgencyScopedMixin, viewsets.ModelViewSet):
@@ -58,6 +80,31 @@ class ListingViewSet(AgencyScopedMixin, viewsets.ModelViewSet):
         if self.action in ("create", "update", "partial_update", "destroy"):
             return [IsAuthenticated(), IsAgencyOperator()]
         return super().get_permissions()
+
+
+class PropertyImageViewSet(AgencyScopedMixin, viewsets.ModelViewSet):
+    queryset = PropertyImage.objects.select_related("property")
+    serializer_class = PropertyImageSerializer
+    permission_classes = [IsAuthenticated, IsAgencyMember]
+
+    def get_permissions(self):
+        if self.action in ("create", "update", "partial_update", "destroy"):
+            return [IsAuthenticated(), IsAgencyOperator()]
+        return super().get_permissions()
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        property_id = self.request.query_params.get("property_id")
+        if property_id:
+            queryset = queryset.filter(property_id=property_id)
+        return queryset
+
+    def perform_create(self, serializer):
+        property_obj = serializer.validated_data.get("property")
+        agency = self.get_agency()
+        if property_obj and property_obj.agency_id != agency.id:
+            raise ValidationError("Ce bien n'appartient pas a l'agence active.")
+        serializer.save(agency=agency)
 
 
 class PublicListingViewSet(
@@ -245,8 +292,11 @@ class RoomViewSet(AgencyScopedMixin, viewsets.ModelViewSet):
         return super().get_permissions()
 
     def get_queryset(self):
-        queryset = super(AgencyScopedMixin, self).get_queryset()
-        return queryset.filter(property__agency=self.get_agency())
+        queryset = super().get_queryset()
+        property_id = self.request.query_params.get("property_id")
+        if property_id:
+            queryset = queryset.filter(property_id=property_id)
+        return queryset
 
     def perform_create(self, serializer):
         self.get_agency()

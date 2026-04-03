@@ -5,6 +5,7 @@ from .views import (
     BuildingViewSet,
     ListingViewSet,
     PropertyViewSet,
+    PropertyImageViewSet,
     PublicListingViewSet,
     RoomViewSet,
 )
@@ -13,6 +14,7 @@ router = DefaultRouter()
 router.register("buildings", BuildingViewSet, basename="building")
 router.register("properties", PropertyViewSet, basename="property")
 router.register("listings", ListingViewSet, basename="listing")
+router.register("property-images", PropertyImageViewSet, basename="property-image")
 router.register("rooms", RoomViewSet, basename="room")
 
 public_listings = PublicListingViewSet.as_view({"get": "list"})

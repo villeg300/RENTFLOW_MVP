@@ -40,6 +40,20 @@ class LeaseViewSet(AgencyScopedMixin, viewsets.ModelViewSet):
             return [IsAuthenticated(), IsAgencyOperator()]
         return super().get_permissions()
 
+    def get_queryset(self):
+        queryset = super().get_queryset().select_related("property", "tenant")
+        params = self.request.query_params
+
+        property_id = params.get("property_id")
+        if property_id:
+            queryset = queryset.filter(property_id=property_id)
+
+        status_param = params.get("status")
+        if status_param:
+            queryset = queryset.filter(status=status_param)
+
+        return queryset
+
     @action(detail=True, methods=["post"], url_path="remind")
     def remind(self, request, *args, **kwargs):
         lease = self.get_object()
