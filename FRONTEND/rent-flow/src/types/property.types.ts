@@ -131,6 +131,8 @@ export interface CreatePropertyPayload {
   property_type?: PropertyType
   city?: string
   building?: string | null
+  latitude?: number
+  longitude?: number
   bedrooms?: number
   bathrooms?: number
   living_rooms?: number

@@ -25,6 +25,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { PropertyLocationPicker } from "@/components/maps/property-location-picker"
 import {
   Drawer,
   DrawerClose,
@@ -244,6 +245,8 @@ export default function BiensPage() {
     building: "none",
     property_type: "house" as PropertyType,
     rent_amount: "",
+    latitude: "",
+    longitude: "",
     bedrooms: "",
     bathrooms: "",
     living_rooms: "",
@@ -300,6 +303,8 @@ export default function BiensPage() {
       building: "none",
       property_type: "house",
       rent_amount: "",
+      latitude: "",
+      longitude: "",
       bedrooms: "",
       bathrooms: "",
       living_rooms: "",
@@ -401,6 +406,28 @@ export default function BiensPage() {
       return
     }
 
+    const latitudeValue = propertyForm.latitude.trim()
+      ? Number(propertyForm.latitude)
+      : undefined
+    const longitudeValue = propertyForm.longitude.trim()
+      ? Number(propertyForm.longitude)
+      : undefined
+
+    if (
+      (latitudeValue !== undefined || longitudeValue !== undefined) &&
+      (!Number.isFinite(latitudeValue ?? NaN) || !Number.isFinite(longitudeValue ?? NaN))
+    ) {
+      setPropertyError("La latitude ou la longitude est invalide.")
+      return
+    }
+    if (
+      (latitudeValue !== undefined && longitudeValue === undefined) ||
+      (latitudeValue === undefined && longitudeValue !== undefined)
+    ) {
+      setPropertyError("Renseignez la latitude et la longitude ensemble.")
+      return
+    }
+
     setPropertyLoading(true)
     setPropertyError(null)
 
@@ -413,6 +440,8 @@ export default function BiensPage() {
         building: propertyForm.building === "none" ? undefined : propertyForm.building,
         property_type: propertyForm.property_type,
         rent_amount: rentValue,
+        latitude: latitudeValue,
+        longitude: longitudeValue,
         bedrooms: toNumber(propertyForm.bedrooms),
         bathrooms: toNumber(propertyForm.bathrooms),
         living_rooms: toNumber(propertyForm.living_rooms),
@@ -954,12 +983,35 @@ export default function BiensPage() {
                                 rent_amount: event.target.value,
                               }))
                             }
-                            required
-                          />
-                        </div>
+                          required
+                        />
                       </div>
+                    </div>
 
-                      <div className="grid gap-3 sm:grid-cols-4">
+                    <div className="rounded-lg border border-border/60 p-4">
+                      <div className="text-sm font-medium">Localisation</div>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Ajoutez un point sur la carte pour activer la vue géographique.
+                      </p>
+                      <div className="mt-3">
+                        <PropertyLocationPicker
+                          value={{
+                            latitude: propertyForm.latitude,
+                            longitude: propertyForm.longitude,
+                          }}
+                          onChange={(next) =>
+                            setPropertyForm((prev) => ({
+                              ...prev,
+                              latitude: next.latitude,
+                              longitude: next.longitude,
+                            }))
+                          }
+                          addressHint={propertyForm.address || undefined}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid gap-3 sm:grid-cols-4">
                         {renderNumberInput(
                           "Chambres",
                           "property-bedrooms",
