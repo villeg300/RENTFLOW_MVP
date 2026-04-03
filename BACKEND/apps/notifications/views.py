@@ -137,7 +137,7 @@ class NotificationReminderQueueView(AgencyScopedMixin, viewsets.ViewSet):
 
         logs_qs = NotificationLog.objects.filter(
             agency=agency, template_key__in=REMINDER_TEMPLATE_KEYS
-        ).select_related("lease", "lease__property")
+        ).select_related("lease", "lease__property", "tenant")
 
         reminder_today_ids = set(
             logs_qs.filter(scheduled_for=today).values_list("lease_id", flat=True)
@@ -158,13 +158,15 @@ class NotificationReminderQueueView(AgencyScopedMixin, viewsets.ViewSet):
             lease = log.lease
             if not lease:
                 continue
+            tenant_name = (
+                log.tenant.full_name if log.tenant else lease.tenant_name
+            )
             items.append(
                 {
                     "id": str(log.id),
                     "lease_id": str(log.lease_id),
-                    "tenant_name": log.tenant_name or lease.tenant_name,
-                    "property_title": log.property_title
-                    or (lease.property.title if lease.property else ""),
+                    "tenant_name": tenant_name,
+                    "property_title": lease.property.title if lease.property else "",
                     "rent_amount": float(lease.rent_amount or 0),
                     "channel": log.channel,
                     "template_key": log.template_key,
