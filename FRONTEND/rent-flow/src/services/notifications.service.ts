@@ -4,6 +4,7 @@ import type {
   NotificationDashboard,
   NotificationLog,
   ReminderQueueItem,
+  ReminderQueueResponse,
 } from "@/types/notifications.types"
 
 export interface FetchNotificationLogsParams {
@@ -117,13 +118,24 @@ export async function sendBulkReminders(
 
 export async function fetchReminderQueue(
   agencyId: string
-): Promise<ReminderQueueItem[]> {
-  const { data } = await apiClient.get<ReminderQueueItem[]>(
+): Promise<ReminderQueueResponse> {
+  const { data } = await apiClient.get<
+    ReminderQueueItem[] | ReminderQueueResponse
+  >(
     "/notifications/reminders/queue/",
     {
       headers: { "X-Agency-ID": agencyId },
     }
   )
 
-  return data ?? []
+  if (Array.isArray(data)) {
+    return { items: data }
+  }
+  if (data && typeof data === "object" && "items" in data) {
+    return {
+      meta: (data as ReminderQueueResponse).meta,
+      items: (data as ReminderQueueResponse).items ?? [],
+    }
+  }
+  return { items: [] }
 }

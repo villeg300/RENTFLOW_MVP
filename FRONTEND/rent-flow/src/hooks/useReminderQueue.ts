@@ -4,10 +4,11 @@ import { useCallback, useEffect, useState } from "react"
 
 import type { NormalizedError } from "@/lib/axios"
 import { fetchReminderQueue } from "@/services/notifications.service"
-import type { ReminderQueueItem } from "@/types/notifications.types"
+import type { ReminderQueueItem, ReminderQueueMeta } from "@/types/notifications.types"
 
 interface ReminderQueueState {
   data: ReminderQueueItem[]
+  meta: ReminderQueueMeta | null
   isLoading: boolean
   error: NormalizedError | null
 }
@@ -15,22 +16,33 @@ interface ReminderQueueState {
 export function useReminderQueue(agencyId: string | null) {
   const [state, setState] = useState<ReminderQueueState>({
     data: [],
+    meta: null,
     isLoading: false,
     error: null,
   })
 
   const load = useCallback(async () => {
     if (!agencyId) {
-      setState({ data: [], isLoading: false, error: null })
+      setState({ data: [], meta: null, isLoading: false, error: null })
       return
     }
 
     setState((prev) => ({ ...prev, isLoading: true, error: null }))
     try {
-      const data = await fetchReminderQueue(agencyId)
-      setState({ data, isLoading: false, error: null })
+      const response = await fetchReminderQueue(agencyId)
+      setState({
+        data: response.items ?? [],
+        meta: response.meta ?? null,
+        isLoading: false,
+        error: null,
+      })
     } catch (error) {
-      setState({ data: [], isLoading: false, error: error as NormalizedError })
+      setState({
+        data: [],
+        meta: null,
+        isLoading: false,
+        error: error as NormalizedError,
+      })
     }
   }, [agencyId])
 

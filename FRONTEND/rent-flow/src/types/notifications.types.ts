@@ -47,3 +47,13 @@ export interface ReminderQueueItem {
   status: "failed" | "overdue"
   scheduled_for?: string | null
 }
+
+export interface ReminderQueueMeta {
+  cooldown_days: number
+  generated_at: string
+}
+
+export interface ReminderQueueResponse {
+  meta?: ReminderQueueMeta
+  items: ReminderQueueItem[]
+}

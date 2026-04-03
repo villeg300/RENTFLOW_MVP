@@ -84,6 +84,16 @@ function formatTemplate(templateKey: string) {
   return templateLabels[templateKey] ?? templateKey.replace(/_/g, " ")
 }
 
+const defaultReminderTemplate =
+  "Rappel de loyer: {amount} XOF pour {property_title}. Merci de regler au plus vite."
+
+function renderMessageTemplate(
+  template: string,
+  values: Record<string, string>
+) {
+  return template.replace(/\{(\w+)\}/g, (match, key) => values[key] ?? match)
+}
+
 type ReminderItem = {
   id: string
   leaseId: string
@@ -161,6 +171,42 @@ export default function NotificationsPage() {
     return parts.length ? parts.join(" • ") : "Aucun filtre spécifique"
   }, [bulkDueDate, bulkOnlyOverdue, bulkMinDays, bulkMaxDays])
 
+  const bulkPreviewMessage = React.useMemo(() => {
+    const template = bulkMessage.trim() ? bulkMessage : defaultReminderTemplate
+    const sampleValues = {
+      tenant_name: "Awa Traoré",
+      amount: "250000",
+      property_title: "Résidence Zogona B2",
+      due_date: bulkDueDate || "2026-04-05",
+      overdue_days: "5",
+    }
+    return renderMessageTemplate(template, sampleValues)
+  }, [bulkMessage, bulkDueDate])
+
+  const singlePreviewMessage = React.useMemo(() => {
+    if (!activeReminder) return ""
+    const template = singleMessage.trim() ? singleMessage : defaultReminderTemplate
+    const amountValue =
+      activeReminder.amount !== undefined ? `${Math.round(activeReminder.amount)}` : "0"
+    const sampleValues = {
+      tenant_name: activeReminder.tenantName,
+      amount: amountValue,
+      property_title: activeReminder.propertyTitle ?? "Bien",
+      due_date: activeReminder.scheduledFor ?? "",
+      overdue_days: activeReminder.scheduledFor
+        ? Math.max(
+            0,
+            Math.floor(
+              (new Date().getTime() -
+                new Date(activeReminder.scheduledFor).getTime()) /
+                (1000 * 60 * 60 * 24)
+            )
+          ).toString()
+        : "",
+    }
+    return renderMessageTemplate(template, sampleValues)
+  }, [activeReminder, singleMessage])
+
   const dashboardParams = React.useMemo(
     () =>
       dashboardFrom && dashboardTo
@@ -196,6 +242,7 @@ export default function NotificationsPage() {
 
   const {
     data: reminderQueue,
+    meta: reminderMeta,
     isLoading: remindersLoading,
     error: remindersError,
     refresh: refreshReminders,
@@ -461,10 +508,16 @@ export default function NotificationsPage() {
       refreshLogs()
       refreshReminders()
       const summary = `Envoyées: ${result.results.sent} • Échouées: ${result.results.failed} • Ignorées: ${result.results.skipped}`
-      if (result.results.sent > 0 && result.results.failed === 0) {
+      if (result.results.sent === 0 && result.results.failed === 0) {
+        toast.warning("Aucune relance envoyée", {
+          description: "Aucun locataire ne correspond aux critères.",
+        })
+      } else if (result.results.sent > 0 && result.results.failed === 0) {
         toast.success("Relance envoyée", { description: summary })
+      } else if (result.results.sent > 0) {
+        toast.warning("Relance partielle", { description: summary })
       } else {
-        toast.error("Relance incomplète", { description: summary })
+        toast.error("Relance échouée", { description: summary })
       }
       setSingleDialogOpen(false)
     } catch (error) {
@@ -512,10 +565,16 @@ export default function NotificationsPage() {
       refreshReminders()
 
       const summary = `Envoyées: ${result.results.sent} • Échouées: ${result.results.failed} • Ignorées: ${result.results.skipped}`
-      if (result.results.sent > 0 && result.results.failed === 0) {
+      if (result.results.sent === 0 && result.results.failed === 0) {
+        toast.warning("Aucune relance envoyée", {
+          description: "Aucun locataire ne correspond aux critères.",
+        })
+      } else if (result.results.sent > 0 && result.results.failed === 0) {
         toast.success("Relance groupée envoyée", { description: summary })
+      } else if (result.results.sent > 0) {
+        toast.warning("Relance groupée partielle", { description: summary })
       } else {
-        toast.error("Relance groupée incomplète", { description: summary })
+        toast.error("Relance groupée échouée", { description: summary })
       }
       setBulkDialogOpen(false)
     } catch (error) {
@@ -856,6 +915,11 @@ export default function NotificationsPage() {
               <Badge variant="destructive">Échecs: {remindersCount.failed}</Badge>
               <Badge variant="secondary">En retard: {remindersCount.overdue}</Badge>
             </div>
+            {reminderMeta?.cooldown_days ? (
+              <div className="text-xs text-muted-foreground">
+                Anti-spam: 1 relance max tous les {reminderMeta.cooldown_days} jour(s)
+              </div>
+            ) : null}
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Select
@@ -1025,6 +1089,17 @@ export default function NotificationsPage() {
               <span className="font-medium text-foreground">Résumé</span> — Canaux:{" "}
               {bulkChannelSummary} • {bulkFiltersSummary}
             </div>
+            {reminderMeta?.cooldown_days ? (
+              <div className="text-xs text-muted-foreground">
+                Limite anti-spam: 1 relance max tous les {reminderMeta.cooldown_days} jour(s).
+              </div>
+            ) : null}
+            <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+              <div className="text-xs font-medium text-foreground">Aperçu du message</div>
+              <p className="mt-2 whitespace-pre-line text-sm text-foreground">
+                {bulkPreviewMessage}
+              </p>
+            </div>
             {bulkError ? (
               <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
                 {bulkError}
@@ -1157,6 +1232,17 @@ export default function NotificationsPage() {
                 {"{amount}"} • {"{property_title}"} • {"{due_date}"} • {"{overdue_days}"}
               </p>
             </div>
+            <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+              <div className="text-xs font-medium text-foreground">Aperçu du message</div>
+              <p className="mt-2 whitespace-pre-line text-sm text-foreground">
+                {singlePreviewMessage}
+              </p>
+            </div>
+            {reminderMeta?.cooldown_days ? (
+              <div className="text-xs text-muted-foreground">
+                Limite anti-spam: 1 relance max tous les {reminderMeta.cooldown_days} jour(s).
+              </div>
+            ) : null}
             {singleError ? (
               <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
                 {singleError}
