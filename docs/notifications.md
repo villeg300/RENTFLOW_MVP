@@ -31,8 +31,13 @@ WHATSAPP_TEMPLATE_CATEGORY=UTILITY
 # Regles de relance
 NOTIFICATION_CHANNELS=email,sms,whatsapp
 RENT_REMINDER_DAYS=-3,0,3
+REMINDER_COOLDOWN_DAYS=1
 WHATSAPP_VERIFY_TTL_MINUTES=10
 ```
+
+**REMINDER_COOLDOWN_DAYS**
+- Empêche d’envoyer plusieurs relances au même locataire dans un délai court.
+- Par défaut: 1 jour.
 
 ## 2) Configuration Africa's Talking (AT)
 
@@ -65,39 +70,58 @@ En developpement, tu peux forcer `WHATSAPP_SIMULATE=true` pour eviter un envoi r
 ```
 GET /api/v1/notifications/logs/
 Authorization: Bearer <access>
+Header: X-Agency-ID: <agency_id>
 ```
 
 Filtres possibles:
 - `channel=email|sms|whatsapp`
-- `status=sent|failed|simulated|skipped`
-- `event=rent_reminder|receipt|whatsapp_verification`
+- `status=pending|sent|failed`
+- `template_key=rent_due_today|rent_overdue|bulk_reminder|...`
+- `date_from=YYYY-MM-DD`
+- `date_to=YYYY-MM-DD`
 - `tenant_id=<uuid>`
+ - `lease_id=<uuid>`
 
 ### 3.2 Dashboard notifications
 ```
-GET /api/v1/notifications/dashboard/?days=30
+GET /api/v1/notifications/dashboard/?date_from=YYYY-MM-DD&date_to=YYYY-MM-DD
 Authorization: Bearer <access>
+Header: X-Agency-ID: <agency_id>
 ```
 Retourne les totaux par statut et par canal.
 
-### 3.3 Relance manuelle d'un bail
+### 3.3 File des relances à faire (anti‑spam)
+```
+GET /api/v1/notifications/reminders/queue/
+Authorization: Bearer <access>
+Header: X-Agency-ID: <agency_id>
+```
+Retourne les relances **à effectuer** (échecs + loyers en retard jamais relancés),
+avec un champ `meta.cooldown_days` pour la limite anti‑spam.
+
+### 3.4 Relance manuelle d'un bail
 ```
 POST /api/v1/leases/<lease_id>/remind/
 Authorization: Bearer <access>
+Header: X-Agency-ID: <agency_id>
 ```
 
-### 3.4 Relance en masse (bulk)
+### 3.5 Relance en masse (bulk)
 ```
 POST /api/v1/notifications/reminders/bulk/
 Authorization: Bearer <access>
+Header: X-Agency-ID: <agency_id>
 {
   "channels": ["email", "sms", "whatsapp"],
-  "message": "Bonjour {tenant_name}, votre loyer de {rent_amount} est du.",
+  "message": "Bonjour {tenant_name}, votre loyer de {amount} est dû.",
   "overdue_min_days": 1,
   "overdue_max_days": 30,
   "only_overdue": true
 }
 ```
+
+**Variables utilisables**
+- `{tenant_name}`, `{amount}`, `{property_title}`, `{due_date}`, `{overdue_days}`
 
 ## 4) Verification WhatsApp (locataire)
 
@@ -137,30 +161,42 @@ Commandes utiles:
 ```
 python manage.py send_rent_reminders
 ```
+**Quand l’utiliser ?**
+- pour tester les templates,
+- après un changement de config SMS/Email.
 
 2. Relance manuelle d'un bail
 ```
 POST /api/v1/leases/<lease_id>/remind/
 Authorization: Bearer <access>
 ```
+**Quand l’utiliser ?**
+- lorsqu’un locataire doit être relancé individuellement.
 
 3. Relance en masse
 ```
 POST /api/v1/notifications/reminders/bulk/
 Authorization: Bearer <access>
 ```
+**Quand l’utiliser ?**
+- campagne de relance en début/fin de mois.
 
 4. Verifier les logs
 ```
 GET /api/v1/notifications/logs/
 Authorization: Bearer <access>
 ```
+**Quand l’utiliser ?**
+- vérifier les statuts (sent/failed),
+- debug des erreurs d’envoi.
 
 5. Dashboards notifications
 ```
-GET /api/v1/notifications/dashboard/?days=30
+GET /api/v1/notifications/dashboard/?date_from=YYYY-MM-DD&date_to=YYYY-MM-DD
 Authorization: Bearer <access>
 ```
+**Quand l’utiliser ?**
+- KPI quotidiens/hebdo par statut et canal.
 
 Bonnes pratiques:
 1. Lancer `send_rent_reminders` via cron/Celery (ex: tous les jours a 08h).

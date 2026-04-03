@@ -27,10 +27,13 @@ Note: `CINETPAY_NOTIFY_URL` doit etre une URL publique (pas de localhost).
 
 ## 3) Base de donnees
 1. Creer l'utilisateur + la DB.
-2. Appliquer les migrations:
+2. Appliquer les migrations (a chaque nouveau deploy ou upgrade):
 ```
 python manage.py migrate
 ```
+**Quand l’utiliser ?**
+- au premier deploy,
+- apres un `git pull` qui ajoute des migrations.
 
 ## 4) Static & Media
 1. Definir `STATIC_ROOT` et `MEDIA_ROOT` en prod.
@@ -39,6 +42,9 @@ python manage.py migrate
 python manage.py collectstatic
 ```
 3. Servir `static/` et `media/` via Nginx ou un storage externe (S3/Cloudflare R2).
+
+**Quand l’utiliser ?**
+- a chaque deploy front/backend avec des assets mis a jour.
 
 ## 5) WSGI / ASGI
 Recommande: Gunicorn pour WSGI.
@@ -71,6 +77,10 @@ celery -A core beat -l info
 python manage.py setup_periodic_tasks
 ```
 
+**Quand l’utiliser ?**
+- apres un reset de DB (les schedules disparaissent),
+- quand tu ajoutes une nouvelle tache planifiee.
+
 ## 11) Ops alertes
 Pour recevoir un email si une tache echoue:
 1. Configurer `OPS_ALERTS_ENABLED=true`
@@ -93,3 +103,20 @@ Pour recevoir un email si une tache echoue:
 4. CinetPay prod ok (site_id, api_key, webhook public)
 5. Superuser cree
 6. Tests passes
+
+## 11) Commandes utiles (ops)
+### Relances automatiques (test manuel)
+```
+python manage.py send_rent_reminders
+```
+**Quand l’utiliser ?**
+- pour tester les templates,
+- pour vérifier la config SMS/Email.
+
+### Installer les taches planifiées
+```
+python manage.py setup_periodic_tasks
+```
+**Quand l’utiliser ?**
+- après un nouveau déploiement,
+- si la table `django_celery_beat` a été vidée.
