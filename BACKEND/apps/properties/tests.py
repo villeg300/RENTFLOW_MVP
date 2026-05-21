@@ -3,6 +3,7 @@ from django.contrib.auth import get_user_model
 from rest_framework.test import APIClient
 
 from apps.agencies.models import Agency, AgencyMembership, AgencyRole
+from apps.properties.models import PropertyImage
 
 User = get_user_model()
 
@@ -475,6 +476,14 @@ def test_room_create_and_scope(api_client, user_password):
     assert len(rooms_list.data) == 1
     assert rooms_list.data[0]["id"] == room.data["id"]
 
+    rooms_for_property = api_client.get(
+        f"/api/v1/rooms/?property_id={prop.data['id']}",
+        HTTP_X_AGENCY_ID=str(agency.id),
+    )
+    assert rooms_for_property.status_code == 200
+    assert len(rooms_for_property.data) == 1
+    assert rooms_for_property.data[0]["id"] == room.data["id"]
+
 
 @pytest.mark.django_db
 def test_room_cross_agency_forbidden(api_client, user_password):
@@ -513,3 +522,43 @@ def test_room_cross_agency_forbidden(api_client, user_password):
         HTTP_X_AGENCY_ID=str(agency_b.id),
     )
     assert forbidden.status_code == 400
+
+
+@pytest.mark.django_db
+def test_property_images_list_scoped_by_property_agency(api_client, user_password):
+    owner = _create_user("0700000920", "owner9@example.com", user_password, "Owner")
+    agency = Agency.objects.create(name="Agence Images", created_by=owner)
+    AgencyMembership.objects.create(agency=agency, user=owner, role=AgencyRole.OWNER)
+
+    access = _login(api_client, owner.phone_number, user_password)
+    api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {access}")
+
+    prop = api_client.post(
+        "/api/v1/properties/",
+        {
+            "title": "Villa Image",
+            "address": "Ouaga",
+            "city": "Ouaga",
+            "property_type": "house",
+            "rent_amount": "200000",
+            "is_available": True,
+        },
+        format="json",
+        HTTP_X_AGENCY_ID=str(agency.id),
+    )
+    assert prop.status_code == 201
+
+    image = PropertyImage.objects.create(
+        agency=agency,
+        property_id=prop.data["id"],
+        image="properties/test.jpg",
+        caption="Facade",
+    )
+
+    images_list = api_client.get(
+        f"/api/v1/property-images/?property_id={prop.data['id']}",
+        HTTP_X_AGENCY_ID=str(agency.id),
+    )
+    assert images_list.status_code == 200
+    assert len(images_list.data) == 1
+    assert images_list.data[0]["id"] == str(image.id)

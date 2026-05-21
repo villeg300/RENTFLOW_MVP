@@ -44,10 +44,10 @@ class Building(models.Model):
     total_units = models.PositiveIntegerField(default=0)
     year_built = models.PositiveIntegerField(null=True, blank=True)
     latitude = models.DecimalField(
-        max_digits=9, decimal_places=6, null=True, blank=True
+        max_digits=30, decimal_places=25, null=True, blank=True
     )
     longitude = models.DecimalField(
-        max_digits=9, decimal_places=6, null=True, blank=True
+        max_digits=30, decimal_places=25, null=True, blank=True
     )
     description = models.TextField(blank=True)
     amenities = models.JSONField(default=list, blank=True)
@@ -85,12 +85,14 @@ class Property(models.Model):
     kitchens = models.PositiveIntegerField(default=0)
     toilets = models.PositiveIntegerField(default=0)
     parking_spots = models.PositiveIntegerField(default=0)
-    area_sqm = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    area_sqm = models.DecimalField(
+        max_digits=10, decimal_places=2, null=True, blank=True
+    )
     latitude = models.DecimalField(
-        max_digits=9, decimal_places=6, null=True, blank=True
+        max_digits=30, decimal_places=25, null=True, blank=True
     )
     longitude = models.DecimalField(
-        max_digits=9, decimal_places=6, null=True, blank=True
+        max_digits=30, decimal_places=25, null=True, blank=True
     )
     furnished = models.BooleanField(default=False)
     has_balcony = models.BooleanField(default=False)
@@ -167,10 +169,10 @@ class Listing(models.Model):
     public_address = models.CharField(max_length=255, blank=True)
     city = models.CharField(max_length=100, blank=True)
     latitude = models.DecimalField(
-        max_digits=9, decimal_places=6, null=True, blank=True
+        max_digits=30, decimal_places=25, null=True, blank=True
     )
     longitude = models.DecimalField(
-        max_digits=9, decimal_places=6, null=True, blank=True
+        max_digits=30, decimal_places=25, null=True, blank=True
     )
     price = models.DecimalField(max_digits=12, decimal_places=2)
     currency = models.CharField(max_length=10, default="XOF")
@@ -205,7 +207,9 @@ class Room(models.Model):
         max_length=20, choices=RoomType.choices, default=RoomType.OTHER
     )
     floor_number = models.IntegerField(null=True, blank=True)
-    area_sqm = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    area_sqm = models.DecimalField(
+        max_digits=10, decimal_places=2, null=True, blank=True
+    )
     has_window = models.BooleanField(default=True)
     description = models.TextField(blank=True)
     created_at = models.DateTimeField(default=timezone.now)

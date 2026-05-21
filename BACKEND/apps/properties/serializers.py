@@ -88,7 +88,9 @@ class PropertySerializer(serializers.ModelSerializer):
         images = getattr(obj, "images", None)
         if images is None:
             return []
-        serializer = PropertyImageSerializer(images.all(), many=True, context=self.context)
+        serializer = PropertyImageSerializer(
+            images.all(), many=True, context=self.context
+        )
         return serializer.data
 
 
@@ -169,7 +171,9 @@ class ListingPublicSerializer(serializers.ModelSerializer):
     latitude = serializers.SerializerMethodField()
     longitude = serializers.SerializerMethodField()
     distance_km = serializers.SerializerMethodField()
-    property_type = serializers.CharField(source="property.property_type", read_only=True)
+    property_type = serializers.CharField(
+        source="property.property_type", read_only=True
+    )
     bedrooms = serializers.IntegerField(source="property.bedrooms", read_only=True)
     bathrooms = serializers.IntegerField(source="property.bathrooms", read_only=True)
     area_sqm = serializers.DecimalField(
@@ -183,7 +187,9 @@ class ListingPublicSerializer(serializers.ModelSerializer):
         source="property.parking_spots", read_only=True
     )
     furnished = serializers.BooleanField(source="property.furnished", read_only=True)
-    has_balcony = serializers.BooleanField(source="property.has_balcony", read_only=True)
+    has_balcony = serializers.BooleanField(
+        source="property.has_balcony", read_only=True
+    )
     has_pool = serializers.BooleanField(source="property.has_pool", read_only=True)
 
     class Meta:
@@ -250,17 +256,6 @@ class RoomSerializer(serializers.ModelSerializer):
             "updated_at",
         )
         read_only_fields = ("id", "created_at", "updated_at")
-
-    def validate_property(self, value):
-        agency = self.context.get("agency")
-        if not agency:
-            request = self.context.get("request")
-            agency = getattr(request, "agency", None) if request else None
-        if agency and value.agency_id != agency.id:
-            raise serializers.ValidationError(
-                "Ce bien n'appartient pas a l'agence active."
-            )
-        return value
 
     def validate_property(self, value):
         agency = self.context.get("agency")

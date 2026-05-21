@@ -459,11 +459,11 @@ export default function PropertyDetailPage() {
             <CardTitle>Caractéristiques détaillées</CardTitle>
             <CardDescription>Pièces, équipements et charges incluses.</CardDescription>
           </div>
-          <CardAction>
+          {/* <CardAction>
             <Button type="button" size="sm" onClick={() => setRoomDialogOpen(true)}>
               Ajouter une pièce
             </Button>
-          </CardAction>
+          </CardAction> */}
         </CardHeader>
         <CardContent className="space-y-4 text-sm">
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -503,6 +503,11 @@ export default function PropertyDetailPage() {
           <CardDescription>
             Liste des pièces associées à ce bien.
           </CardDescription>
+          <CardAction>
+            <Button type="button" size="sm" onClick={() => setRoomDialogOpen(true)}>
+              Ajouter une pièce
+            </Button>
+          </CardAction>
         </CardHeader>
         <CardContent className="space-y-3">
           {roomsLoading ? (
