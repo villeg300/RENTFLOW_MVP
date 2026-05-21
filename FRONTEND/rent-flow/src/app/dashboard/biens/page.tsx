@@ -27,6 +27,14 @@ import {
 } from "@/components/ui/card"
 import { PropertyLocationPicker } from "@/components/maps/property-location-picker"
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import {
   Drawer,
   DrawerClose,
   DrawerContent,
@@ -204,6 +212,7 @@ export default function BiensPage() {
   const [createDrawerOpen, setCreateDrawerOpen] = React.useState(false)
   const [createStep, setCreateStep] = React.useState<"choose" | "form">("choose")
   const [createType, setCreateType] = React.useState<CreateType>("property")
+  const [locationDialogOpen, setLocationDialogOpen] = React.useState(false)
   const [propertyLoading, setPropertyLoading] = React.useState(false)
   const [buildingLoading, setBuildingLoading] = React.useState(false)
   const [listingLoading, setListingLoading] = React.useState(false)
@@ -379,6 +388,7 @@ export default function BiensPage() {
       if (!open) {
         setCreateStep("choose")
         setCreateType("property")
+        setLocationDialogOpen(false)
         resetPropertyForm()
         resetBuildingForm()
         resetListingForm()
@@ -989,11 +999,72 @@ export default function BiensPage() {
                     </div>
 
                     <div className="rounded-lg border border-border/60 p-4">
-                      <div className="text-sm font-medium">Localisation</div>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        Ajoutez un point sur la carte pour activer la vue géographique.
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <div className="text-sm font-medium">Localisation</div>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            Choisissez un point sur la carte pour activer la vue
+                            géographique.
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setLocationDialogOpen(true)}
+                        >
+                          Ouvrir la carte
+                        </Button>
+                      </div>
+                      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                        <div className="grid gap-2">
+                          <Label htmlFor="property-latitude">Latitude</Label>
+                          <Input
+                            id="property-latitude"
+                            value={propertyForm.latitude}
+                            onChange={(event) =>
+                              setPropertyForm((prev) => ({
+                                ...prev,
+                                latitude: event.target.value,
+                              }))
+                            }
+                            placeholder="12.3714"
+                          />
+                        </div>
+                        <div className="grid gap-2">
+                          <Label htmlFor="property-longitude">Longitude</Label>
+                          <Input
+                            id="property-longitude"
+                            value={propertyForm.longitude}
+                            onChange={(event) =>
+                              setPropertyForm((prev) => ({
+                                ...prev,
+                                longitude: event.target.value,
+                              }))
+                            }
+                            placeholder="-1.5197"
+                          />
+                        </div>
+                      </div>
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        {propertyForm.latitude && propertyForm.longitude
+                          ? "Position enregistrée."
+                          : "Aucune position enregistrée."}
                       </p>
-                      <div className="mt-3">
+                    </div>
+
+                    <Dialog
+                      open={locationDialogOpen}
+                      onOpenChange={setLocationDialogOpen}
+                    >
+                      <DialogContent className="sm:max-w-3xl max-h-[85vh] overflow-y-auto no-scrollbar">
+                        <DialogHeader>
+                          <DialogTitle>Choisir la localisation</DialogTitle>
+                          <DialogDescription>
+                            Recherchez une adresse ou cliquez sur la carte pour
+                            positionner le bien.
+                          </DialogDescription>
+                        </DialogHeader>
                         <PropertyLocationPicker
                           value={{
                             latitude: propertyForm.latitude,
@@ -1008,8 +1079,13 @@ export default function BiensPage() {
                           }
                           addressHint={propertyForm.address || undefined}
                         />
-                      </div>
-                    </div>
+                        <DialogFooter>
+                          <Button type="button" onClick={() => setLocationDialogOpen(false)}>
+                            Confirmer
+                          </Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
 
                     <div className="grid gap-3 sm:grid-cols-4">
                         {renderNumberInput(

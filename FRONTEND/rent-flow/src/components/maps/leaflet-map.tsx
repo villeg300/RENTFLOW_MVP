@@ -33,6 +33,17 @@ function Recenter({ value }: { value: { lat: number; lng: number } | null }) {
   return null
 }
 
+function InvalidateSize() {
+  const map = useMap()
+  React.useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      map.invalidateSize()
+    }, 150)
+    return () => window.clearTimeout(timeout)
+  }, [map])
+  return null
+}
+
 export function LeafletMap({ value, onChange, height = 240 }: LeafletMapProps) {
   const center = value ? ([value.lat, value.lng] as [number, number]) : defaultCenter
 
@@ -55,6 +66,7 @@ export function LeafletMap({ value, onChange, height = 240 }: LeafletMapProps) {
       />
       {value ? <Marker position={center} icon={markerIcon} /> : null}
       <Recenter value={value} />
+      <InvalidateSize />
     </MapContainer>
   )
 }

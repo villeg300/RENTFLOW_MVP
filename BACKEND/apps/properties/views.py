@@ -93,7 +93,10 @@ class PropertyImageViewSet(AgencyScopedMixin, viewsets.ModelViewSet):
         return super().get_permissions()
 
     def get_queryset(self):
-        queryset = super().get_queryset()
+        agency = self.get_agency()
+        queryset = Room.objects.select_related("property").filter(
+            property__agency=agency
+        )
         property_id = self.request.query_params.get("property_id")
         if property_id:
             queryset = queryset.filter(property_id=property_id)

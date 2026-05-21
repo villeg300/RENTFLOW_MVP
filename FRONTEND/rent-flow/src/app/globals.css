@@ -3,6 +3,16 @@
 @import "shadcn/tailwind.css";
 @import "leaflet/dist/leaflet.css";
 
+.leaflet-container {
+  width: 100%;
+  max-width: 100%;
+  z-index: 0;
+}
+
+.leaflet-container img {
+  max-width: none !important;
+}
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
