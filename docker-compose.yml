@@ -1,0 +1,62 @@
+
+services:
+  db:
+    image: postgres:16
+    container_name: rentflow_db
+    restart: always
+    environment:
+      POSTGRES_DB: rentflow_db
+      POSTGRES_USER: rentflow
+      POSTGRES_PASSWORD: rentflowpassword
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7
+    container_name: rentflow_redis
+    ports:
+      - "6379:6379"
+
+  backend:
+    build:
+      context: .
+      dockerfile: BACKEND/Dockerfile
+    container_name: rentflow_backend
+    env_file:
+      - BACKEND/.env
+    volumes:
+      - ./BACKEND:/code
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+      - redis
+
+  worker:
+    build:
+      context: .
+      dockerfile: BACKEND/Dockerfile
+    container_name: rentflow_worker
+    env_file:
+      - BACKEND/.env
+    command: /bin/sh -c "celery -A core worker --loglevel=info"
+    volumes:
+      - ./BACKEND:/code
+    depends_on:
+      - redis
+      - db
+
+  frontend:
+    build:
+      context: FRONTEND/rent-flow
+      dockerfile: Dockerfile
+    container_name: rentflow_frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:

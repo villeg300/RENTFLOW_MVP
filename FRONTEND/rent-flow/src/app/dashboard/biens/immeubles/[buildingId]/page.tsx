@@ -5,7 +5,7 @@ import * as React from "react"
 import Link from "next/link"
 import { useParams } from "next/navigation"
 
-import { Building2Icon, HomeIcon, PlusIcon } from "lucide-react"
+import { Building2Icon, HomeIcon, PencilIcon, PlusIcon, Trash2Icon } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -41,6 +41,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { useAgencyContext } from "@/context/AgencyContext"
 import { useBuildingDetail } from "@/hooks/useBuildingDetail"
 import { useProperties } from "@/hooks/useProperties"
+import { getErrorMessage } from "@/lib/error-message"
 import type { CreatePropertyPayload, Property, PropertyType } from "@/types/property.types"
 import { toast } from "sonner"
 
@@ -82,11 +83,14 @@ export default function BuildingDetailPage() {
     isLoading: unitsLoading,
     refresh: refreshUnits,
     create: createProperty,
+    update: updateProperty,
+    remove: removeProperty,
   } = useProperties({ agencyId: activeAgencyId, buildingId })
 
   const [createOpen, setCreateOpen] = React.useState(false)
   const [createLoading, setCreateLoading] = React.useState(false)
   const [createError, setCreateError] = React.useState<string | null>(null)
+  const [editingUnitId, setEditingUnitId] = React.useState<string | null>(null)
 
   const [form, setForm] = React.useState({
     title: "",
@@ -103,6 +107,7 @@ export default function BuildingDetailPage() {
   })
 
   const resetForm = React.useCallback(() => {
+    setEditingUnitId(null)
     setForm({
       title: "",
       address: "",
@@ -118,6 +123,40 @@ export default function BuildingDetailPage() {
     })
     setCreateError(null)
   }, [])
+
+  const openCreateUnitDialog = React.useCallback(() => {
+    resetForm()
+    setCreateOpen(true)
+  }, [resetForm])
+
+  const openEditUnitDialog = React.useCallback((unit: Property) => {
+    setEditingUnitId(unit.id)
+    setForm({
+      title: unit.title,
+      address: unit.address,
+      city: unit.city,
+      property_type: unit.property_type,
+      rent_amount: String(unit.rent_amount ?? ""),
+      bedrooms: String(unit.bedrooms ?? ""),
+      bathrooms: String(unit.bathrooms ?? ""),
+      area_sqm: unit.area_sqm === null ? "" : String(unit.area_sqm),
+      furnished: unit.furnished,
+      is_available: unit.is_available,
+      description: unit.description,
+    })
+    setCreateError(null)
+    setCreateOpen(true)
+  }, [])
+
+  const handleDeleteUnit = async (unitId: string) => {
+    if (!window.confirm("Supprimer cette unité ?")) return
+    try {
+      await removeProperty(unitId)
+      toast.success("Unité supprimée.")
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Impossible de supprimer l’unité."))
+    }
+  }
 
   const currencyFormatter = React.useMemo(
     () =>
@@ -139,7 +178,7 @@ export default function BuildingDetailPage() {
 
     const rentValue = Number(form.rent_amount)
     if (!form.title.trim() || !form.address.trim()) {
-      setCreateError("Le titre et l'adresse sont obligatoires.")
+      setCreateError("Le titre et l’adresse sont obligatoires.")
       return
     }
     if (!Number.isFinite(rentValue) || rentValue <= 0) {
@@ -166,14 +205,20 @@ export default function BuildingDetailPage() {
         description: form.description.trim() || undefined,
       }
 
-      await createProperty(payload)
-      toast.success("Unité créée avec succès.")
+      if (editingUnitId) {
+        await updateProperty(editingUnitId, payload)
+      } else {
+        await createProperty(payload)
+      }
+      toast.success(
+        editingUnitId ? "Unité modifiée avec succès." : "Unité créée avec succès."
+      )
       setCreateOpen(false)
       resetForm()
       refreshUnits()
-    } catch (err: any) {
-      setCreateError(err?.message ?? "Impossible de créer l'unité.")
-      toast.error("Échec de création de l'unité.")
+    } catch (error) {
+      setCreateError(getErrorMessage(error, "Impossible d’enregistrer l’unité."))
+      toast.error("Échec d’enregistrement de l’unité.")
     } finally {
       setCreateLoading(false)
     }
@@ -202,7 +247,7 @@ export default function BuildingDetailPage() {
           <CardHeader>
             <CardDescription>Immeuble</CardDescription>
             <CardTitle className="text-2xl font-semibold">
-              Impossible de charger l'immeuble
+              Impossible de charger l&apos;immeuble
             </CardTitle>
           </CardHeader>
           <CardFooter className="flex flex-col items-start gap-2 text-sm">
@@ -224,7 +269,7 @@ export default function BuildingDetailPage() {
         <div>
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <HomeIcon className="size-4" />
-            Détail de l'immeuble
+            Détail de l&apos;immeuble
           </div>
           <h1 className="text-2xl font-semibold text-foreground">{building.name}</h1>
         </div>
@@ -232,7 +277,7 @@ export default function BuildingDetailPage() {
           <Button asChild variant="ghost" size="sm">
             <Link href="/dashboard/biens">Retour aux biens</Link>
           </Button>
-          <Button type="button" size="sm" onClick={() => setCreateOpen(true)}>
+          <Button type="button" size="sm" onClick={openCreateUnitDialog}>
             <PlusIcon className="mr-2 size-4" />
             Créer une unité
           </Button>
@@ -264,7 +309,7 @@ export default function BuildingDetailPage() {
         <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <CardTitle>Informations générales</CardTitle>
-            <CardDescription>Coordonnées de l'immeuble.</CardDescription>
+            <CardDescription>Coordonnées de l&apos;immeuble.</CardDescription>
           </div>
           <CardAction>
             <Badge variant={building.is_active ? "secondary" : "outline"}>
@@ -303,7 +348,7 @@ export default function BuildingDetailPage() {
 
       <Card className="@container/card">
         <CardHeader>
-          <CardTitle>Unités de l'immeuble</CardTitle>
+          <CardTitle>Unités de l&apos;immeuble</CardTitle>
           <CardDescription>Biens rattachés à cet immeuble.</CardDescription>
         </CardHeader>
         <CardContent>
@@ -316,7 +361,13 @@ export default function BuildingDetailPage() {
           ) : units.length ? (
             <div className="grid gap-3 sm:grid-cols-2">
               {units.map((unit) => (
-                <UnitCard key={unit.id} unit={unit} currencyFormatter={currencyFormatter} />
+                <UnitCard
+                  key={unit.id}
+                  unit={unit}
+                  currencyFormatter={currencyFormatter}
+                  onEdit={() => openEditUnitDialog(unit)}
+                  onDelete={() => handleDeleteUnit(unit.id)}
+                />
               ))}
             </div>
           ) : (
@@ -336,14 +387,18 @@ export default function BuildingDetailPage() {
       >
         <DialogContent className="sm:max-w-xl max-h-[85vh] overflow-y-auto no-scrollbar">
           <DialogHeader>
-            <DialogTitle>Créer une unité</DialogTitle>
+            <DialogTitle>
+              {editingUnitId ? "Modifier l’unité" : "Créer une unité"}
+            </DialogTitle>
             <DialogDescription>
-              Ajoutez une unité directement dans l'immeuble.
+              {editingUnitId
+                ? "Mettez à jour les informations de cette unité."
+                : "Ajoutez une unité directement dans l’immeuble."}
             </DialogDescription>
           </DialogHeader>
           <form className="grid gap-4" onSubmit={handleCreateUnit}>
             <div className="grid gap-2">
-              <Label htmlFor="unit-title">Titre de l'unité</Label>
+              <Label htmlFor="unit-title">Titre de l&apos;unité</Label>
               <Input
                 id="unit-title"
                 value={form.title}
@@ -490,7 +545,11 @@ export default function BuildingDetailPage() {
 
             <DialogFooter>
               <Button type="submit" disabled={createLoading}>
-                {createLoading ? "Création..." : "Créer l'unité"}
+                {createLoading
+                  ? "Enregistrement..."
+                  : editingUnitId
+                    ? "Modifier l’unité"
+                    : "Créer l’unité"}
               </Button>
             </DialogFooter>
           </form>
@@ -503,9 +562,13 @@ export default function BuildingDetailPage() {
 function UnitCard({
   unit,
   currencyFormatter,
+  onEdit,
+  onDelete,
 }: {
   unit: Property
   currencyFormatter: Intl.NumberFormat
+  onEdit: () => void
+  onDelete: () => void
 }) {
   const rentValue = formatNumber(unit.rent_amount)
   return (
@@ -532,13 +595,33 @@ function UnitCard({
         <span>•</span>
         <span>{unit.bathrooms} sdb</span>
       </div>
-      <div className="mt-3">
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
         <Button asChild variant="ghost" size="sm" className="gap-1">
           <Link href={`/dashboard/biens/${unit.id}`}>
             <Building2Icon className="size-3" />
             Voir le bien
           </Link>
         </Button>
+        <div className="flex items-center gap-1">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            aria-label="Modifier l'unité"
+            onClick={onEdit}
+          >
+            <PencilIcon className="size-4" />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            aria-label="Supprimer l'unité"
+            onClick={onDelete}
+          >
+            <Trash2Icon className="size-4" />
+          </Button>
+        </div>
       </div>
     </div>
   )

@@ -10,6 +10,10 @@ import type {
   PropertyImage,
   PropertyType,
   Room,
+  UpdateBuildingPayload,
+  UpdateListingPayload,
+  UpdatePropertyPayload,
+  UpdateRoomPayload,
 } from "@/types/property.types"
 
 export interface FetchPropertiesParams {
@@ -70,6 +74,30 @@ export async function createProperty(
   return data
 }
 
+export async function updateProperty(
+  agencyId: string,
+  propertyId: string,
+  payload: UpdatePropertyPayload
+): Promise<Property> {
+  const { data } = await apiClient.patch<Property>(
+    `/properties/${propertyId}/`,
+    payload,
+    {
+      headers: { "X-Agency-ID": agencyId },
+    }
+  )
+  return data
+}
+
+export async function deleteProperty(
+  agencyId: string,
+  propertyId: string
+): Promise<void> {
+  await apiClient.delete(`/properties/${propertyId}/`, {
+    headers: { "X-Agency-ID": agencyId },
+  })
+}
+
 export async function fetchProperty(
   agencyId: string,
   propertyId: string
@@ -110,6 +138,30 @@ export async function createBuilding(
   return data
 }
 
+export async function updateBuilding(
+  agencyId: string,
+  buildingId: string,
+  payload: UpdateBuildingPayload
+): Promise<Building> {
+  const { data } = await apiClient.patch<Building>(
+    `/buildings/${buildingId}/`,
+    payload,
+    {
+      headers: { "X-Agency-ID": agencyId },
+    }
+  )
+  return data
+}
+
+export async function deleteBuilding(
+  agencyId: string,
+  buildingId: string
+): Promise<void> {
+  await apiClient.delete(`/buildings/${buildingId}/`, {
+    headers: { "X-Agency-ID": agencyId },
+  })
+}
+
 export async function fetchListings(agencyId: string): Promise<Listing[]> {
   const { data } = await apiClient.get<Listing[] | { results?: Listing[] }>(
     "/listings/",
@@ -128,6 +180,30 @@ export async function createListing(
     headers: { "X-Agency-ID": agencyId },
   })
   return data
+}
+
+export async function updateListing(
+  agencyId: string,
+  listingId: string,
+  payload: UpdateListingPayload
+): Promise<Listing> {
+  const { data } = await apiClient.patch<Listing>(
+    `/listings/${listingId}/`,
+    payload,
+    {
+      headers: { "X-Agency-ID": agencyId },
+    }
+  )
+  return data
+}
+
+export async function deleteListing(
+  agencyId: string,
+  listingId: string
+): Promise<void> {
+  await apiClient.delete(`/listings/${listingId}/`, {
+    headers: { "X-Agency-ID": agencyId },
+  })
 }
 
 export async function fetchRooms(
@@ -154,6 +230,26 @@ export async function createRoom(
     headers: { "X-Agency-ID": agencyId },
   })
   return data
+}
+
+export async function updateRoom(
+  agencyId: string,
+  roomId: string,
+  payload: UpdateRoomPayload
+): Promise<Room> {
+  const { data } = await apiClient.patch<Room>(`/rooms/${roomId}/`, payload, {
+    headers: { "X-Agency-ID": agencyId },
+  })
+  return data
+}
+
+export async function deleteRoom(
+  agencyId: string,
+  roomId: string
+): Promise<void> {
+  await apiClient.delete(`/rooms/${roomId}/`, {
+    headers: { "X-Agency-ID": agencyId },
+  })
 }
 
 export async function fetchPropertyImages(

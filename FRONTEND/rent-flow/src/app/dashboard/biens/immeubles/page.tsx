@@ -7,8 +7,10 @@ import Link from "next/link"
 import {
   ArrowLeftIcon,
   Building2Icon,
+  PencilIcon,
   PlusIcon,
   RefreshCcwIcon,
+  Trash2Icon,
   XIcon,
 } from "lucide-react"
 
@@ -37,6 +39,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { useAgencyContext } from "@/context/AgencyContext"
 import { useBuildings } from "@/hooks/useBuildings"
 import { useProperties } from "@/hooks/useProperties"
+import { getErrorMessage } from "@/lib/error-message"
 import type { Building } from "@/types/property.types"
 import { toast } from "sonner"
 
@@ -48,6 +51,8 @@ export default function ImmeublesPage() {
     error,
     refresh: refreshBuildings,
     create: createBuilding,
+    update: updateBuilding,
+    remove: removeBuilding,
   } = useBuildings(activeAgencyId)
   const { data: properties, refresh: refreshProperties } = useProperties({
     agencyId: activeAgencyId,
@@ -56,6 +61,7 @@ export default function ImmeublesPage() {
   const [drawerOpen, setDrawerOpen] = React.useState(false)
   const [loading, setLoading] = React.useState(false)
   const [formError, setFormError] = React.useState<string | null>(null)
+  const [editingBuildingId, setEditingBuildingId] = React.useState<string | null>(null)
   const [form, setForm] = React.useState({
     name: "",
     address: "",
@@ -67,6 +73,7 @@ export default function ImmeublesPage() {
   })
 
   const resetForm = React.useCallback(() => {
+    setEditingBuildingId(null)
     setForm({
       name: "",
       address: "",
@@ -89,17 +96,48 @@ export default function ImmeublesPage() {
     [resetForm]
   )
 
+  const openCreateBuildingDrawer = React.useCallback(() => {
+    resetForm()
+    setDrawerOpen(true)
+  }, [resetForm])
+
+  const openEditBuildingDrawer = React.useCallback((building: Building) => {
+    setEditingBuildingId(building.id)
+    setForm({
+      name: building.name,
+      address: building.address,
+      city: building.city,
+      total_floors: String(building.total_floors ?? ""),
+      total_units: String(building.total_units ?? ""),
+      year_built: building.year_built === null ? "" : String(building.year_built),
+      description: building.description,
+    })
+    setFormError(null)
+    setDrawerOpen(true)
+  }, [])
+
   const handleRefreshAll = React.useCallback(() => {
     refreshBuildings()
     refreshProperties()
   }, [refreshBuildings, refreshProperties])
+
+  const handleDeleteBuilding = async (buildingId: string) => {
+    if (!window.confirm("Supprimer cet immeuble ?")) return
+    try {
+      await removeBuilding(buildingId)
+      toast.success("Immeuble supprimé.")
+      refreshProperties()
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Impossible de supprimer l’immeuble."))
+    }
+  }
 
   const handleCreateBuilding = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!activeAgencyId) return
 
     if (!form.name.trim() || !form.address.trim()) {
-      setFormError("Le nom et l'adresse sont obligatoires.")
+      setFormError("Le nom et l’adresse sont obligatoires.")
       return
     }
 
@@ -108,7 +146,7 @@ export default function ImmeublesPage() {
 
     try {
       const toNumber = (value: string) => (value.trim() ? Number(value) : undefined)
-      await createBuilding({
+      const payload = {
         name: form.name.trim(),
         address: form.address.trim(),
         city: form.city.trim() || undefined,
@@ -116,13 +154,20 @@ export default function ImmeublesPage() {
         total_units: toNumber(form.total_units),
         year_built: toNumber(form.year_built),
         description: form.description.trim() || undefined,
-      })
-      toast.success("Immeuble créé avec succès.")
+      }
+      if (editingBuildingId) {
+        await updateBuilding(editingBuildingId, payload)
+      } else {
+        await createBuilding(payload)
+      }
+      toast.success(
+        editingBuildingId ? "Immeuble modifié avec succès." : "Immeuble créé avec succès."
+      )
       setDrawerOpen(false)
       resetForm()
-    } catch (err: any) {
-      setFormError(err?.message ?? "Impossible de créer l'immeuble.")
-      toast.error("Échec de création de l'immeuble.")
+    } catch (error) {
+      setFormError(getErrorMessage(error, "Impossible d’enregistrer l’immeuble."))
+      toast.error("Échec d’enregistrement de l’immeuble.")
     } finally {
       setLoading(false)
     }
@@ -233,7 +278,7 @@ export default function ImmeublesPage() {
             <RefreshCcwIcon className="mr-2 size-4" />
             Actualiser
           </Button>
-          <Button type="button" size="sm" onClick={() => setDrawerOpen(true)}>
+          <Button type="button" size="sm" onClick={openCreateBuildingDrawer}>
             <PlusIcon className="mr-2 size-4" />
             Créer un immeuble
           </Button>
@@ -261,7 +306,7 @@ export default function ImmeublesPage() {
         </Card>
         <Card className="@container/card">
           <CardHeader>
-            <CardDescription>Taux d'occupation</CardDescription>
+            <CardDescription>Taux d&apos;occupation</CardDescription>
             <CardTitle className="text-2xl font-semibold">{occupancyRate}%</CardTitle>
           </CardHeader>
         </Card>
@@ -276,7 +321,12 @@ export default function ImmeublesPage() {
             </CardDescription>
           </div>
           <CardAction>
-            <Button type="button" variant="outline" size="sm" onClick={() => setDrawerOpen(true)}>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={openCreateBuildingDrawer}
+            >
               Nouvel immeuble
             </Button>
           </CardAction>
@@ -285,7 +335,12 @@ export default function ImmeublesPage() {
           {buildingSummaries.length ? (
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               {buildingSummaries.map((building) => (
-                <BuildingCard key={building.id} building={building} />
+                <BuildingCard
+                  key={building.id}
+                  building={building}
+                  onEdit={() => openEditBuildingDrawer(building)}
+                  onDelete={() => handleDeleteBuilding(building.id)}
+                />
               ))}
             </div>
           ) : (
@@ -301,9 +356,13 @@ export default function ImmeublesPage() {
           <DrawerHeader className="border-b border-border/60">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <DrawerTitle>Nouvel immeuble</DrawerTitle>
+                <DrawerTitle>
+                  {editingBuildingId ? "Modifier l’immeuble" : "Nouvel immeuble"}
+                </DrawerTitle>
                 <DrawerDescription>
-                  Créez un immeuble pour regrouper vos unités immobilières.
+                  {editingBuildingId
+                    ? "Mettez à jour les informations de cet immeuble."
+                    : "Créez un immeuble pour regrouper vos unités immobilières."}
                 </DrawerDescription>
               </div>
               <DrawerClose asChild>
@@ -317,7 +376,7 @@ export default function ImmeublesPage() {
             <div className="flex-1 overflow-y-auto px-4 pb-6 pt-4">
               <form className="grid gap-4" onSubmit={handleCreateBuilding}>
                 <div className="grid gap-2">
-                  <Label htmlFor="building-name">Nom de l'immeuble</Label>
+                  <Label htmlFor="building-name">Nom de l&apos;immeuble</Label>
                   <Input
                     id="building-name"
                     value={form.name}
@@ -400,7 +459,11 @@ export default function ImmeublesPage() {
                     Annuler
                   </Button>
                   <Button type="submit" disabled={loading}>
-                    {loading ? "Création..." : "Créer l'immeuble"}
+                    {loading
+                      ? "Enregistrement..."
+                      : editingBuildingId
+                        ? "Modifier l’immeuble"
+                        : "Créer l’immeuble"}
                   </Button>
                 </div>
               </form>
@@ -414,8 +477,12 @@ export default function ImmeublesPage() {
 
 function BuildingCard({
   building,
+  onEdit,
+  onDelete,
 }: {
   building: Building & { unitsCount: number; availableUnits: number }
+  onEdit: () => void
+  onDelete: () => void
 }) {
   const occupancyRate = building.unitsCount
     ? Math.round(((building.unitsCount - building.availableUnits) / building.unitsCount) * 100)
@@ -445,10 +512,30 @@ function BuildingCard({
           </Badge>
         </div>
       </CardContent>
-      <CardFooter className="flex items-center justify-between">
-        <Button asChild variant="ghost" size="sm">
-          <Link href={`/dashboard/biens/immeubles/${building.id}`}>Voir détail</Link>
-        </Button>
+      <CardFooter className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-1">
+          <Button asChild variant="ghost" size="sm">
+            <Link href={`/dashboard/biens/immeubles/${building.id}`}>Voir détail</Link>
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            aria-label="Modifier l'immeuble"
+            onClick={onEdit}
+          >
+            <PencilIcon className="size-4" />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            aria-label="Supprimer l'immeuble"
+            onClick={onDelete}
+          >
+            <Trash2Icon className="size-4" />
+          </Button>
+        </div>
         <Button asChild variant="outline" size="sm">
           <Link href={`/dashboard/biens/immeubles/${building.id}`}>Créer une unité</Link>
         </Button>

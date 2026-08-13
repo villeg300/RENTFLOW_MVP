@@ -1,0 +1,9 @@
+node_modules
+.next
+.git
+pnpm-store
+dist
+.venv
+*.log
+build
+.DS_Store

@@ -5,10 +5,16 @@ import { useCallback, useEffect, useState } from "react"
 import type { NormalizedError } from "@/lib/axios"
 import {
   createProperty,
+  deleteProperty,
   fetchProperties,
+  updateProperty,
   type FetchPropertiesParams,
 } from "@/services/properties.service"
-import type { CreatePropertyPayload, Property } from "@/types/property.types"
+import type {
+  CreatePropertyPayload,
+  Property,
+  UpdatePropertyPayload,
+} from "@/types/property.types"
 
 interface PropertiesState {
   data: Property[]
@@ -53,7 +59,11 @@ export function useProperties({
   }, [agencyId, propertyType, isAvailable, buildingId])
 
   useEffect(() => {
-    void load()
+    const timeoutId = setTimeout(() => {
+      void load()
+    }, 0)
+
+    return () => clearTimeout(timeoutId)
   }, [load])
 
   const create = useCallback(
@@ -68,5 +78,34 @@ export function useProperties({
     [agencyId]
   )
 
-  return { ...state, refresh: load, create }
+  const update = useCallback(
+    async (propertyId: string, payload: UpdatePropertyPayload) => {
+      if (!agencyId) {
+        throw new Error("Agence active manquante.")
+      }
+      const property = await updateProperty(agencyId, propertyId, payload)
+      setState((prev) => ({
+        ...prev,
+        data: prev.data.map((item) => (item.id === property.id ? property : item)),
+      }))
+      return property
+    },
+    [agencyId]
+  )
+
+  const remove = useCallback(
+    async (propertyId: string) => {
+      if (!agencyId) {
+        throw new Error("Agence active manquante.")
+      }
+      await deleteProperty(agencyId, propertyId)
+      setState((prev) => ({
+        ...prev,
+        data: prev.data.filter((item) => item.id !== propertyId),
+      }))
+    },
+    [agencyId]
+  )
+
+  return { ...state, refresh: load, create, update, remove }
 }

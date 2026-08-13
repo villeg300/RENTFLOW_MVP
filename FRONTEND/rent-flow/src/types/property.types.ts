@@ -43,6 +43,7 @@ export interface Building {
   longitude: number | string | null
   description: string
   amenities: string[]
+  is_active?: boolean
   created_at: string
   updated_at: string
 }
@@ -156,6 +157,8 @@ export interface CreatePropertyPayload {
   description?: string
 }
 
+export type UpdatePropertyPayload = Partial<CreatePropertyPayload>
+
 export interface CreateBuildingPayload {
   name: string
   address: string
@@ -165,6 +168,8 @@ export interface CreateBuildingPayload {
   year_built?: number
   description?: string
 }
+
+export type UpdateBuildingPayload = Partial<CreateBuildingPayload>
 
 export interface CreateListingPayload {
   property: string
@@ -181,6 +186,8 @@ export interface CreateListingPayload {
   is_featured?: boolean
 }
 
+export type UpdateListingPayload = Partial<CreateListingPayload>
+
 export interface CreateRoomPayload {
   property: string
   name: string
@@ -190,3 +197,5 @@ export interface CreateRoomPayload {
   has_window?: boolean
   description?: string
 }
+
+export type UpdateRoomPayload = Partial<CreateRoomPayload>

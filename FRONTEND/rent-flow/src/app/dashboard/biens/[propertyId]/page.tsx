@@ -5,7 +5,7 @@ import * as React from "react"
 import Link from "next/link"
 import { useParams } from "next/navigation"
 
-import { HomeIcon, ImageIcon, MapPinIcon } from "lucide-react"
+import { HomeIcon, ImageIcon, MapPinIcon, PencilIcon, Trash2Icon } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -44,6 +44,7 @@ import { useBuildings } from "@/hooks/useBuildings"
 import { useLeases } from "@/hooks/useLeases"
 import { usePropertyDetail } from "@/hooks/usePropertyDetail"
 import { useRooms } from "@/hooks/useRooms"
+import { getErrorMessage } from "@/lib/error-message"
 import type { Lease } from "@/types/lease.types"
 import type {
   CreateRoomPayload,
@@ -117,6 +118,8 @@ export default function PropertyDetailPage() {
     data: rooms,
     isLoading: roomsLoading,
     create: createRoom,
+    update: updateRoom,
+    remove: removeRoom,
   } = useRooms(activeAgencyId, propertyId)
   const { data: buildings } = useBuildings(activeAgencyId)
 
@@ -169,6 +172,7 @@ export default function PropertyDetailPage() {
   const [roomDialogOpen, setRoomDialogOpen] = React.useState(false)
   const [roomLoading, setRoomLoading] = React.useState(false)
   const [roomError, setRoomError] = React.useState<string | null>(null)
+  const [editingRoomId, setEditingRoomId] = React.useState<string | null>(null)
   const [roomForm, setRoomForm] = React.useState({
     name: "",
     room_type: "bedroom" as RoomType,
@@ -179,6 +183,7 @@ export default function PropertyDetailPage() {
   })
 
   const resetRoomForm = React.useCallback(() => {
+    setEditingRoomId(null)
     setRoomForm({
       name: "",
       room_type: "bedroom",
@@ -190,7 +195,36 @@ export default function PropertyDetailPage() {
     setRoomError(null)
   }, [])
 
-  const handleCreateRoom = async (event: React.FormEvent<HTMLFormElement>) => {
+  const openCreateRoomDialog = React.useCallback(() => {
+    resetRoomForm()
+    setRoomDialogOpen(true)
+  }, [resetRoomForm])
+
+  const openEditRoomDialog = React.useCallback((room: (typeof rooms)[number]) => {
+    setEditingRoomId(room.id)
+    setRoomForm({
+      name: room.name,
+      room_type: room.room_type,
+      floor_number: room.floor_number === null ? "" : String(room.floor_number),
+      area_sqm: room.area_sqm === null ? "" : String(room.area_sqm),
+      has_window: room.has_window,
+      description: room.description,
+    })
+    setRoomError(null)
+    setRoomDialogOpen(true)
+  }, [])
+
+  const handleDeleteRoom = async (roomId: string) => {
+    if (!window.confirm("Supprimer cette pièce ?")) return
+    try {
+      await removeRoom(roomId)
+      toast.success("Pièce supprimée.")
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Impossible de supprimer la pièce."))
+    }
+  }
+
+  const handleSubmitRoom = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!propertyId) return
 
@@ -212,13 +246,18 @@ export default function PropertyDetailPage() {
         has_window: roomForm.has_window,
         description: roomForm.description.trim() || undefined,
       }
-      await createRoom(payload)
-      toast.success("Pièce ajoutée avec succès.")
+      if (editingRoomId) {
+        await updateRoom(editingRoomId, payload)
+        toast.success("Pièce modifiée avec succès.")
+      } else {
+        await createRoom(payload)
+        toast.success("Pièce ajoutée avec succès.")
+      }
       setRoomDialogOpen(false)
       resetRoomForm()
-    } catch (err: any) {
-      setRoomError(err?.message ?? "Impossible d'ajouter la pièce.")
-      toast.error("Échec de création de la pièce.")
+    } catch (error) {
+      setRoomError(getErrorMessage(error, "Impossible d’enregistrer la pièce."))
+      toast.error("Échec d’enregistrement de la pièce.")
     } finally {
       setRoomLoading(false)
     }
@@ -504,7 +543,7 @@ export default function PropertyDetailPage() {
             Liste des pièces associées à ce bien.
           </CardDescription>
           <CardAction>
-            <Button type="button" size="sm" onClick={() => setRoomDialogOpen(true)}>
+            <Button type="button" size="sm" onClick={openCreateRoomDialog}>
               Ajouter une pièce
             </Button>
           </CardAction>
@@ -523,11 +562,35 @@ export default function PropertyDetailPage() {
                   key={room.id}
                   className="rounded-xl border border-border/60 px-4 py-3 text-sm"
                 >
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium text-foreground">{room.name}</span>
-                    <Badge variant="outline">
-                      {roomTypeLabels[room.room_type] ?? room.room_type}
-                    </Badge>
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <span className="font-medium text-foreground">{room.name}</span>
+                      <div className="mt-1">
+                        <Badge variant="outline">
+                          {roomTypeLabels[room.room_type] ?? room.room_type}
+                        </Badge>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        aria-label="Modifier la pièce"
+                        onClick={() => openEditRoomDialog(room)}
+                      >
+                        <PencilIcon className="size-4" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        aria-label="Supprimer la pièce"
+                        onClick={() => handleDeleteRoom(room.id)}
+                      >
+                        <Trash2Icon className="size-4" />
+                      </Button>
+                    </div>
                   </div>
                   <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                     {room.floor_number !== null ? `Étage ${room.floor_number}` : "Étage —"}
@@ -586,12 +649,14 @@ export default function PropertyDetailPage() {
       >
         <DialogContent className="sm:max-w-xl max-h-[85vh] overflow-y-auto no-scrollbar">
           <DialogHeader>
-            <DialogTitle>Ajouter une pièce</DialogTitle>
+            <DialogTitle>
+              {editingRoomId ? "Modifier la pièce" : "Ajouter une pièce"}
+            </DialogTitle>
             <DialogDescription>
               Complétez les caractéristiques de la pièce pour ce bien.
             </DialogDescription>
           </DialogHeader>
-          <form className="grid gap-4" onSubmit={handleCreateRoom}>
+          <form className="grid gap-4" onSubmit={handleSubmitRoom}>
             <div className="grid gap-2">
               <Label htmlFor="room-name">Nom de la pièce</Label>
               <Input
@@ -684,7 +749,11 @@ export default function PropertyDetailPage() {
 
             <DialogFooter>
               <Button type="submit" disabled={roomLoading}>
-                {roomLoading ? "Création..." : "Ajouter la pièce"}
+                {roomLoading
+                  ? "Enregistrement..."
+                  : editingRoomId
+                    ? "Modifier la pièce"
+                    : "Ajouter la pièce"}
               </Button>
             </DialogFooter>
           </form>

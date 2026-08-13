@@ -9,9 +9,11 @@ import {
   Building2Icon,
   HomeIcon,
   ImageIcon,
+  PencilIcon,
   PlusIcon,
   RefreshCcwIcon,
   SearchIcon,
+  Trash2Icon,
   XIcon,
 } from "lucide-react"
 
@@ -56,14 +58,13 @@ import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { useAgencyContext } from "@/context/AgencyContext"
 import { useBuildings } from "@/hooks/useBuildings"
+import { useListings } from "@/hooks/useListings"
 import { useProperties } from "@/hooks/useProperties"
-import {
-  createBuilding,
-  createListing,
-  uploadPropertyImage,
-} from "@/services/properties.service"
+import { getErrorMessage } from "@/lib/error-message"
+import { uploadPropertyImage } from "@/services/properties.service"
 import type {
   CreateListingPayload,
+  Listing,
   Property,
   PropertyImage,
   PropertyType,
@@ -99,6 +100,12 @@ const createTypeLabels: Record<CreateType, string> = {
   building: "Immeuble",
   property: "Bien",
   listing: "Annonce",
+}
+
+const createTypeArticleLabels: Record<CreateType, string> = {
+  building: "un immeuble",
+  property: "un bien",
+  listing: "une annonce",
 }
 
 const createTypeDescriptions: Record<CreateType, string> = {
@@ -137,13 +144,24 @@ export default function BiensPage() {
     error,
     refresh: refreshProperties,
     create: createProperty,
+    update: updateProperty,
+    remove: removeProperty,
   } = useProperties({
     agencyId: activeAgencyId,
   })
   const {
     data: buildings,
     refresh: refreshBuildings,
+    create: createBuilding,
   } = useBuildings(activeAgencyId)
+  const {
+    data: listings,
+    isLoading: listingsLoading,
+    refresh: refreshListings,
+    create: createListing,
+    update: updateListing,
+    remove: removeListing,
+  } = useListings(activeAgencyId)
 
   const [search, setSearch] = React.useState("")
   const [typeFilter, setTypeFilter] = React.useState<PropertyType | "all">("all")
@@ -220,6 +238,8 @@ export default function BiensPage() {
   const [propertyError, setPropertyError] = React.useState<string | null>(null)
   const [buildingError, setBuildingError] = React.useState<string | null>(null)
   const [listingError, setListingError] = React.useState<string | null>(null)
+  const [editingPropertyId, setEditingPropertyId] = React.useState<string | null>(null)
+  const [editingListingId, setEditingListingId] = React.useState<string | null>(null)
 
   const [propertyImages, setPropertyImages] = React.useState<File[]>([])
 
@@ -305,6 +325,7 @@ export default function BiensPage() {
   })
 
   const resetPropertyForm = React.useCallback(() => {
+    setEditingPropertyId(null)
     setPropertyForm({
       title: "",
       address: "",
@@ -354,6 +375,7 @@ export default function BiensPage() {
   }, [])
 
   const resetListingForm = React.useCallback(() => {
+    setEditingListingId(null)
     setListingForm({
       property: "",
       title: "",
@@ -371,16 +393,22 @@ export default function BiensPage() {
     setListingError(null)
   }, [])
 
-  const openCreateDrawer = React.useCallback((type?: CreateType) => {
-    if (type) {
-      setCreateType(type)
-      setCreateStep("form")
-    } else {
-      setCreateType("property")
-      setCreateStep("choose")
-    }
-    setCreateDrawerOpen(true)
-  }, [])
+  const openCreateDrawer = React.useCallback(
+    (type?: CreateType) => {
+      resetPropertyForm()
+      resetBuildingForm()
+      resetListingForm()
+      if (type) {
+        setCreateType(type)
+        setCreateStep("form")
+      } else {
+        setCreateType("property")
+        setCreateStep("choose")
+      }
+      setCreateDrawerOpen(true)
+    },
+    [resetBuildingForm, resetListingForm, resetPropertyForm]
+  )
 
   const handleDrawerOpenChange = React.useCallback(
     (open: boolean) => {
@@ -397,10 +425,94 @@ export default function BiensPage() {
     [resetBuildingForm, resetListingForm, resetPropertyForm]
   )
 
+  const openEditPropertyDrawer = React.useCallback((property: Property) => {
+    setEditingPropertyId(property.id)
+    setCreateType("property")
+    setCreateStep("form")
+    setPropertyImages([])
+    setPropertyError(null)
+    setPropertyForm({
+      title: property.title,
+      address: property.address,
+      city: property.city,
+      building: property.building ?? "none",
+      property_type: property.property_type,
+      rent_amount: String(property.rent_amount ?? ""),
+      latitude: property.latitude === null ? "" : String(property.latitude),
+      longitude: property.longitude === null ? "" : String(property.longitude),
+      bedrooms: String(property.bedrooms ?? ""),
+      bathrooms: String(property.bathrooms ?? ""),
+      living_rooms: String(property.living_rooms ?? ""),
+      kitchens: String(property.kitchens ?? ""),
+      toilets: String(property.toilets ?? ""),
+      parking_spots: String(property.parking_spots ?? ""),
+      area_sqm: property.area_sqm === null ? "" : String(property.area_sqm),
+      furnished: property.furnished,
+      has_balcony: property.has_balcony,
+      has_terrace: property.has_terrace,
+      has_garden: property.has_garden,
+      has_storage: property.has_storage,
+      has_elevator: property.has_elevator,
+      has_pool: property.has_pool,
+      has_air_conditioning: property.has_air_conditioning,
+      water_included: property.water_included,
+      electricity_included: property.electricity_included,
+      internet_included: property.internet_included,
+      security_included: property.security_included,
+      is_available: property.is_available,
+      description: property.description,
+    })
+    setCreateDrawerOpen(true)
+  }, [])
+
+  const openEditListingDrawer = React.useCallback((listing: Listing) => {
+    setEditingListingId(listing.id)
+    setCreateType("listing")
+    setCreateStep("form")
+    setListingError(null)
+    setListingForm({
+      property: listing.property,
+      title: listing.title,
+      price: String(listing.price ?? ""),
+      status: listing.status,
+      available_from: listing.available_from ?? "",
+      public_address: listing.public_address,
+      city: listing.city,
+      contact_name: listing.contact_name,
+      contact_phone: listing.contact_phone,
+      contact_email: listing.contact_email,
+      is_featured: listing.is_featured,
+      description: listing.description,
+    })
+    setCreateDrawerOpen(true)
+  }, [])
+
   const handleRefreshAll = React.useCallback(() => {
     refreshProperties()
     refreshBuildings()
-  }, [refreshBuildings, refreshProperties])
+    refreshListings()
+  }, [refreshBuildings, refreshListings, refreshProperties])
+
+  const handleDeleteProperty = async (propertyId: string) => {
+    if (!window.confirm("Supprimer ce bien ?")) return
+    try {
+      await removeProperty(propertyId)
+      toast.success("Bien supprimé.")
+      refreshListings()
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Impossible de supprimer le bien."))
+    }
+  }
+
+  const handleDeleteListing = async (listingId: string) => {
+    if (!window.confirm("Supprimer cette annonce ?")) return
+    try {
+      await removeListing(listingId)
+      toast.success("Annonce supprimée.")
+    } catch (error) {
+      toast.error(getErrorMessage(error, "Impossible de supprimer l’annonce."))
+    }
+  }
 
   const handleCreateProperty = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -408,7 +520,7 @@ export default function BiensPage() {
 
     const rentValue = Number(propertyForm.rent_amount)
     if (!propertyForm.title.trim() || !propertyForm.address.trim()) {
-      setPropertyError("Le titre et l'adresse sont obligatoires.")
+      setPropertyError("Le titre et l’adresse sont obligatoires.")
       return
     }
     if (!Number.isFinite(rentValue) || rentValue <= 0) {
@@ -447,7 +559,7 @@ export default function BiensPage() {
         title: propertyForm.title.trim(),
         address: propertyForm.address.trim(),
         city: propertyForm.city.trim() || undefined,
-        building: propertyForm.building === "none" ? undefined : propertyForm.building,
+        building: propertyForm.building === "none" ? null : propertyForm.building,
         property_type: propertyForm.property_type,
         rent_amount: rentValue,
         latitude: latitudeValue,
@@ -475,7 +587,9 @@ export default function BiensPage() {
         description: propertyForm.description.trim() || undefined,
       }
 
-      const property = await createProperty(payload)
+      const property = editingPropertyId
+        ? await updateProperty(editingPropertyId, payload)
+        : await createProperty(payload)
 
       if (propertyImages.length) {
         for (let index = 0; index < propertyImages.length; index += 1) {
@@ -488,13 +602,13 @@ export default function BiensPage() {
         refreshProperties()
       }
 
-      toast.success("Bien créé avec succès.")
+      toast.success(editingPropertyId ? "Bien modifié avec succès." : "Bien créé avec succès.")
       setCreateDrawerOpen(false)
       setCreateStep("choose")
       resetPropertyForm()
-    } catch (err: any) {
-      setPropertyError(err?.message ?? "Impossible de créer le bien.")
-      toast.error("Échec de création du bien.")
+    } catch (error) {
+      setPropertyError(getErrorMessage(error, "Impossible d’enregistrer le bien."))
+      toast.error("Échec d’enregistrement du bien.")
     } finally {
       setPropertyLoading(false)
     }
@@ -505,7 +619,7 @@ export default function BiensPage() {
     if (!activeAgencyId) return
 
     if (!buildingForm.name.trim() || !buildingForm.address.trim()) {
-      setBuildingError("Le nom et l'adresse sont obligatoires.")
+      setBuildingError("Le nom et l’adresse sont obligatoires.")
       return
     }
 
@@ -514,7 +628,7 @@ export default function BiensPage() {
 
     try {
       const toNumber = (value: string) => (value.trim() ? Number(value) : undefined)
-      await createBuilding(activeAgencyId, {
+      await createBuilding({
         name: buildingForm.name.trim(),
         address: buildingForm.address.trim(),
         city: buildingForm.city.trim() || undefined,
@@ -528,9 +642,9 @@ export default function BiensPage() {
       setCreateStep("choose")
       resetBuildingForm()
       refreshBuildings()
-    } catch (err: any) {
-      setBuildingError(err?.message ?? "Impossible de créer l'immeuble.")
-      toast.error("Échec de création de l'immeuble.")
+    } catch (error) {
+      setBuildingError(getErrorMessage(error, "Impossible de créer l’immeuble."))
+      toast.error("Échec de création de l’immeuble.")
     } finally {
       setBuildingLoading(false)
     }
@@ -570,19 +684,29 @@ export default function BiensPage() {
         is_featured: listingForm.is_featured,
       }
 
-      await createListing(activeAgencyId, payload)
-      toast.success("Annonce créée avec succès.")
+      if (editingListingId) {
+        await updateListing(editingListingId, payload)
+      } else {
+        await createListing(payload)
+      }
+      toast.success(
+        editingListingId ? "Annonce modifiée avec succès." : "Annonce créée avec succès."
+      )
       setCreateDrawerOpen(false)
       setCreateStep("choose")
       resetListingForm()
-    } catch (err: any) {
-      setListingError(err?.message ?? "Impossible de créer l'annonce.")
-      toast.error("Échec de création de l'annonce.")
+    } catch (error) {
+      setListingError(getErrorMessage(error, "Impossible d’enregistrer l’annonce."))
+      toast.error("Échec d’enregistrement de l’annonce.")
     } finally {
       setListingLoading(false)
     }
   }
 
+  const isEditingDrawer =
+    (createType === "property" && Boolean(editingPropertyId)) ||
+    (createType === "listing" && Boolean(editingListingId))
+  const drawerActionLabel = isEditingDrawer ? "Modifier" : "Créer"
 
   if (!agencies.length) {
     return (
@@ -781,6 +905,8 @@ export default function BiensPage() {
                       property={property}
                       currencyFormatter={currencyFormatter}
                       buildingName={buildingName}
+                      onEdit={() => openEditPropertyDrawer(property)}
+                      onDelete={() => handleDeleteProperty(property.id)}
                     />
                   )
                 })}
@@ -816,6 +942,57 @@ export default function BiensPage() {
           )}
         </CardContent>
       </Card>
+
+      <Card className="@container/card">
+        <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <CardTitle>Annonces</CardTitle>
+            <CardDescription>
+              Gérez les annonces publiques rattachées à vos biens.
+            </CardDescription>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => openCreateDrawer("listing")}
+          >
+            Nouvelle annonce
+          </Button>
+        </CardHeader>
+        <CardContent>
+          {listingsLoading ? (
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {Array.from({ length: 3 }).map((_, index) => (
+                <Skeleton key={index} className="h-36 w-full" />
+              ))}
+            </div>
+          ) : listings.length ? (
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {listings.map((listing) => {
+                const propertyTitle =
+                  properties.find((property) => property.id === listing.property)?.title ??
+                  "Bien non trouvé"
+                return (
+                  <ListingCard
+                    key={listing.id}
+                    listing={listing}
+                    propertyTitle={propertyTitle}
+                    currencyFormatter={currencyFormatter}
+                    onEdit={() => openEditListingDrawer(listing)}
+                    onDelete={() => handleDeleteListing(listing.id)}
+                  />
+                )
+              })}
+            </div>
+          ) : (
+            <div className="rounded-lg border border-border/60 bg-muted/30 p-6 text-center text-sm text-muted-foreground">
+              Aucune annonce enregistrée pour le moment.
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       <Drawer open={createDrawerOpen} onOpenChange={handleDrawerOpenChange} direction="right">
         <DrawerContent className="w-full sm:max-w-2xl">
           <DrawerHeader className="border-b border-border/60">
@@ -824,7 +1001,7 @@ export default function BiensPage() {
                 <DrawerTitle>
                   {createStep === "choose"
                     ? "Nouvelle création"
-                    : `Créer un ${createTypeLabels[createType].toLowerCase()}`}
+                    : `${drawerActionLabel} ${createTypeArticleLabels[createType]}`}
                 </DrawerTitle>
                 <DrawerDescription>
                   {createStep === "choose"
@@ -873,15 +1050,19 @@ export default function BiensPage() {
               ) : (
                 <div className="space-y-4">
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setCreateStep("choose")}
-                    >
-                      <ArrowLeftIcon className="mr-2 size-4" />
-                      Choisir un autre type
-                    </Button>
+                    {isEditingDrawer ? (
+                      <div className="text-sm text-muted-foreground">Mode édition</div>
+                    ) : (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setCreateStep("choose")}
+                      >
+                        <ArrowLeftIcon className="mr-2 size-4" />
+                        Choisir un autre type
+                      </Button>
+                    )}
                     <Badge variant="secondary">{createTypeLabels[createType]}</Badge>
                   </div>
 
@@ -1281,7 +1462,11 @@ export default function BiensPage() {
 
                       <div className="flex justify-end pt-2">
                         <Button type="submit" disabled={propertyLoading}>
-                          {propertyLoading ? "Création..." : "Créer le bien"}
+                          {propertyLoading
+                            ? "Enregistrement..."
+                            : editingPropertyId
+                              ? "Modifier le bien"
+                              : "Créer le bien"}
                         </Button>
                       </div>
                     </form>
@@ -1290,7 +1475,7 @@ export default function BiensPage() {
                   {createType === "building" ? (
                     <form className="grid gap-4" onSubmit={handleCreateBuilding}>
                       <div className="grid gap-2">
-                        <Label htmlFor="building-name">Nom de l'immeuble</Label>
+                        <Label htmlFor="building-name">Nom de l&apos;immeuble</Label>
                         <Input
                           id="building-name"
                           value={buildingForm.name}
@@ -1393,7 +1578,7 @@ export default function BiensPage() {
 
                       <div className="flex justify-end pt-2">
                         <Button type="submit" disabled={buildingLoading}>
-                          {buildingLoading ? "Création..." : "Créer l'immeuble"}
+                          {buildingLoading ? "Création..." : "Créer l’immeuble"}
                         </Button>
                       </div>
                     </form>
@@ -1427,7 +1612,7 @@ export default function BiensPage() {
                         </Select>
                       </div>
                       <div className="grid gap-2">
-                        <Label htmlFor="listing-title">Titre de l'annonce</Label>
+                        <Label htmlFor="listing-title">Titre de l&apos;annonce</Label>
                         <Input
                           id="listing-title"
                           value={listingForm.title}
@@ -1502,7 +1687,7 @@ export default function BiensPage() {
                               public_address: event.target.value,
                             }))
                           }
-                          placeholder="Quartier Patte d'oie"
+                          placeholder="Quartier Patte d’oie"
                         />
                       </div>
                       <div className="grid gap-3 sm:grid-cols-2">
@@ -1599,7 +1784,11 @@ export default function BiensPage() {
 
                       <div className="flex justify-end pt-2">
                         <Button type="submit" disabled={listingLoading}>
-                          {listingLoading ? "Création..." : "Créer l'annonce"}
+                          {listingLoading
+                            ? "Enregistrement..."
+                            : editingListingId
+                              ? "Modifier l’annonce"
+                              : "Créer l’annonce"}
                         </Button>
                       </div>
                     </form>
@@ -1619,10 +1808,14 @@ function PropertyCard({
   property,
   currencyFormatter,
   buildingName,
+  onEdit,
+  onDelete,
 }: {
   property: Property
   currencyFormatter: Intl.NumberFormat
   buildingName?: string
+  onEdit: () => void
+  onDelete: () => void
 }) {
   const image = getPrimaryImage(property.images)
   const imageUrl = resolveImageUrl(image?.image)
@@ -1680,10 +1873,30 @@ function PropertyCard({
           </span>
         </div>
       </CardContent>
-      <CardFooter className="flex items-center justify-between">
-        <Button asChild variant="ghost" size="sm">
-          <Link href={`/dashboard/biens/${property.id}`}>Voir détail</Link>
-        </Button>
+      <CardFooter className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-1">
+          <Button asChild variant="ghost" size="sm">
+            <Link href={`/dashboard/biens/${property.id}`}>Voir détail</Link>
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            aria-label="Modifier le bien"
+            onClick={onEdit}
+          >
+            <PencilIcon className="size-4" />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            aria-label="Supprimer le bien"
+            onClick={onDelete}
+          >
+            <Trash2Icon className="size-4" />
+          </Button>
+        </div>
         {property.building ? (
           <Button asChild variant="ghost" size="sm" className="gap-1">
             <Link href={`/dashboard/biens/immeubles/${property.building}`}>
@@ -1699,6 +1912,73 @@ function PropertyCard({
         )}
       </CardFooter>
     </Card>
+  )
+}
+
+function ListingCard({
+  listing,
+  propertyTitle,
+  currencyFormatter,
+  onEdit,
+  onDelete,
+}: {
+  listing: Listing
+  propertyTitle: string
+  currencyFormatter: Intl.NumberFormat
+  onEdit: () => void
+  onDelete: () => void
+}) {
+  const priceValue = formatNumber(listing.price)
+  const statusLabel =
+    listingStatusOptions.find((option) => option.value === listing.status)?.label ??
+    listing.status
+
+  return (
+    <div className="rounded-xl border border-border/60 p-4 text-sm">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="truncate font-medium text-foreground">{listing.title}</div>
+          <div className="mt-1 text-xs text-muted-foreground">{propertyTitle}</div>
+        </div>
+        <Badge variant={listing.status === "published" ? "secondary" : "outline"}>
+          {statusLabel}
+        </Badge>
+      </div>
+      <div className="mt-3 flex items-center justify-between">
+        <span className="text-muted-foreground">Prix</span>
+        <span className="font-semibold">
+          {priceValue !== null ? currencyFormatter.format(priceValue) : "—"}
+        </span>
+      </div>
+      <div className="mt-2 text-xs text-muted-foreground">
+        {listing.city || listing.public_address || "Adresse publique non renseignée"}
+      </div>
+      <div className="mt-4 flex items-center justify-between gap-2">
+        <Button asChild variant="ghost" size="sm">
+          <Link href={`/dashboard/biens/${listing.property}`}>Voir le bien</Link>
+        </Button>
+        <div className="flex items-center gap-1">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            aria-label="Modifier l'annonce"
+            onClick={onEdit}
+          >
+            <PencilIcon className="size-4" />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            aria-label="Supprimer l'annonce"
+            onClick={onDelete}
+          >
+            <Trash2Icon className="size-4" />
+          </Button>
+        </div>
+      </div>
+    </div>
   )
 }
 

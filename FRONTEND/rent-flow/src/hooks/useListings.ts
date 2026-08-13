@@ -4,44 +4,44 @@ import { useCallback, useEffect, useState } from "react"
 
 import type { NormalizedError } from "@/lib/axios"
 import {
-  createRoom,
-  deleteRoom,
-  fetchRooms,
-  updateRoom,
+  createListing,
+  deleteListing,
+  fetchListings,
+  updateListing,
 } from "@/services/properties.service"
 import type {
-  CreateRoomPayload,
-  Room,
-  UpdateRoomPayload,
+  CreateListingPayload,
+  Listing,
+  UpdateListingPayload,
 } from "@/types/property.types"
 
-interface RoomsState {
-  data: Room[]
+interface ListingsState {
+  data: Listing[]
   isLoading: boolean
   error: NormalizedError | null
 }
 
-export function useRooms(agencyId: string | null, propertyId?: string) {
-  const [state, setState] = useState<RoomsState>({
+export function useListings(agencyId: string | null) {
+  const [state, setState] = useState<ListingsState>({
     data: [],
     isLoading: false,
     error: null,
   })
 
   const load = useCallback(async () => {
-    if (!agencyId || !propertyId) {
+    if (!agencyId) {
       setState({ data: [], isLoading: false, error: null })
       return
     }
 
     setState((prev) => ({ ...prev, isLoading: true, error: null }))
     try {
-      const data = await fetchRooms(agencyId, propertyId)
+      const data = await fetchListings(agencyId)
       setState({ data, isLoading: false, error: null })
     } catch (error) {
       setState({ data: [], isLoading: false, error: error as NormalizedError })
     }
-  }, [agencyId, propertyId])
+  }, [agencyId])
 
   useEffect(() => {
     const timeoutId = setTimeout(() => {
@@ -52,41 +52,41 @@ export function useRooms(agencyId: string | null, propertyId?: string) {
   }, [load])
 
   const create = useCallback(
-    async (payload: CreateRoomPayload) => {
+    async (payload: CreateListingPayload) => {
       if (!agencyId) {
         throw new Error("Agence active manquante.")
       }
-      const room = await createRoom(agencyId, payload)
-      setState((prev) => ({ ...prev, data: [room, ...prev.data] }))
-      return room
+      const listing = await createListing(agencyId, payload)
+      setState((prev) => ({ ...prev, data: [listing, ...prev.data] }))
+      return listing
     },
     [agencyId]
   )
 
   const update = useCallback(
-    async (roomId: string, payload: UpdateRoomPayload) => {
+    async (listingId: string, payload: UpdateListingPayload) => {
       if (!agencyId) {
         throw new Error("Agence active manquante.")
       }
-      const room = await updateRoom(agencyId, roomId, payload)
+      const listing = await updateListing(agencyId, listingId, payload)
       setState((prev) => ({
         ...prev,
-        data: prev.data.map((item) => (item.id === room.id ? room : item)),
+        data: prev.data.map((item) => (item.id === listing.id ? listing : item)),
       }))
-      return room
+      return listing
     },
     [agencyId]
   )
 
   const remove = useCallback(
-    async (roomId: string) => {
+    async (listingId: string) => {
       if (!agencyId) {
         throw new Error("Agence active manquante.")
       }
-      await deleteRoom(agencyId, roomId)
+      await deleteListing(agencyId, listingId)
       setState((prev) => ({
         ...prev,
-        data: prev.data.filter((item) => item.id !== roomId),
+        data: prev.data.filter((item) => item.id !== listingId),
       }))
     },
     [agencyId]
