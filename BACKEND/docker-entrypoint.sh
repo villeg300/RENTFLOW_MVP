@@ -5,6 +5,9 @@ set -e
 echo "Running migrations..."
 python manage.py migrate --noinput
 
+echo "Setting up periodic tasks (Celery Beat schedule)..."
+python manage.py setup_periodic_tasks
+
 echo "Collecting static files (may be no-op in dev)..."
 python manage.py collectstatic --noinput || true
 

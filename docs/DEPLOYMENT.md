@@ -61,7 +61,7 @@ Nginx:
 2. Proxy vers Gunicorn/Uvicorn.
 3. Servir static/media.
 
-## 7) Celery (optionnel)
+## 7) Celery
 Si tu ajoutes des taches (notifications, factures, cron):
 1. Redis comme broker.
 2. Lancer un worker + beat:

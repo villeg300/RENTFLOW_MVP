@@ -1,19 +1,25 @@
-FROM node:24-alpine
+FROM node:24-bullseye
 
 WORKDIR /app
 
-# Install pnpm
-RUN corepack enable && corepack prepare pnpm@latest --activate
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential python3 g++ make curl ca-certificates libvips-dev \
+  && rm -rf /var/lib/apt/lists/*
 
-# Copy package manifest and lockfile
+RUN corepack enable && corepack prepare pnpm@11.21.0 --activate
+
 COPY package.json ./
 COPY pnpm-lock.yaml ./
+COPY pnpm-workspace.yaml ./
 
-# Install dependencies
-RUN pnpm install --frozen-lockfile
+# Désactiver la vérification des builds bloqués
+ENV PNPM_ALLOW_NON_APPLIED_PATCHES=true
+ENV CI=false
 
-# Copy frontend source and build
-COPY . ./
+RUN pnpm install --frozen-lockfile --unsafe-perm --config.ignore-scripts=false
+
+COPY . .
+
 RUN pnpm build
 
 EXPOSE 3000

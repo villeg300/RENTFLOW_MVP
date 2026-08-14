@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { ActivationCard } from "@/components/activation/activation-card";
 import { GalleryVerticalEndIcon } from "lucide-react";
 
@@ -15,7 +16,9 @@ export default function ActivatePage() {
         </div>
         <div className="flex flex-1 items-center justify-center">
           <div className="w-full max-w-md">
-            <ActivationCard />
+            <Suspense fallback={null}>
+              <ActivationCard />
+            </Suspense>
           </div>
         </div>
       </div>

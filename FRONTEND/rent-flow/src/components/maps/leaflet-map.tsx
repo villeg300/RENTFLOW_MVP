@@ -6,7 +6,7 @@ import L from "leaflet"
 import iconRetinaUrl from "leaflet/dist/images/marker-icon-2x.png"
 import iconUrl from "leaflet/dist/images/marker-icon.png"
 import shadowUrl from "leaflet/dist/images/marker-shadow.png"
-import { MapContainer, Marker, TileLayer, useMap } from "react-leaflet"
+import { MapContainer, Marker, TileLayer, useMap, useMapEvents } from "react-leaflet"
 
 const defaultCenter: [number, number] = [12.3714, -1.5197]
 
@@ -33,6 +33,15 @@ function Recenter({ value }: { value: { lat: number; lng: number } | null }) {
   return null
 }
 
+function ClickHandler({ onChange }: { onChange: (value: { lat: number; lng: number }) => void }) {
+  useMapEvents({
+    click(event: L.LeafletMouseEvent) {
+      onChange({ lat: event.latlng.lat, lng: event.latlng.lng })
+    },
+  })
+  return null
+}
+
 function InvalidateSize() {
   const map = useMap()
   React.useEffect(() => {
@@ -54,17 +63,13 @@ export function LeafletMap({ value, onChange, height = 240 }: LeafletMapProps) {
       scrollWheelZoom
       className="w-full rounded-xl border border-border/60"
       style={{ height }}
-      whenReady={(map) => {
-        map.target.on("click", (event: L.LeafletMouseEvent) => {
-          onChange({ lat: event.latlng.lat, lng: event.latlng.lng })
-        })
-      }}
     >
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
       {value ? <Marker position={center} icon={markerIcon} /> : null}
+      <ClickHandler onChange={onChange} />
       <Recenter value={value} />
       <InvalidateSize />
     </MapContainer>

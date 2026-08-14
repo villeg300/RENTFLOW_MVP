@@ -84,6 +84,7 @@ interface UseRegisterReturn extends AsyncState {
   submit: (payload: RegisterPayload) => Promise<void>;
   /** True après une inscription réussie (email d'activation envoyé) */
   registered: boolean;
+  reset: () => void;
 }
 
 export function useRegister(): UseRegisterReturn {

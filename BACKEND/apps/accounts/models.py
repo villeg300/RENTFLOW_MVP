@@ -11,15 +11,15 @@ from django.utils import timezone
 
 
 class UserManager(BaseUserManager):
-    def create_user(
-        self, phone_number, full_name, email=None, password=None, **extra_fields
-    ):
+    def create_user(self, phone_number, full_name, email=None, password=None, **extra_fields):
         if not phone_number:
             raise ValueError("Le numéro de téléphone est obligatoire")
         if not full_name:
             raise ValueError("Le nom complet est obligatoire")
         if not email:
             raise ValueError("L'email est obligatoire")
+        if not password:
+            raise ValueError("Le mot de passe est obligatoire")
 
         email = self.normalize_email(email)
         user = self.model(
@@ -29,9 +29,7 @@ class UserManager(BaseUserManager):
         user.save(using=self._db)
         return user
 
-    def create_superuser(
-        self, phone_number, full_name, email=None, password=None, **extra_fields
-    ):
+    def create_superuser(self, phone_number, full_name, email=None, password=None, **extra_fields):
         extra_fields.setdefault("is_staff", True)
         extra_fields.setdefault("is_superuser", True)
         extra_fields.setdefault("is_active", True)
@@ -41,9 +39,7 @@ class UserManager(BaseUserManager):
         if extra_fields.get("is_superuser") is not True:
             raise ValueError("Le superutilisateur doit avoir is_superuser=True")
 
-        return self.create_user(
-            phone_number, full_name, email, password, **extra_fields
-        )
+        return self.create_user(phone_number, full_name, email=email, password=password, **extra_fields)
 
 
 class User(AbstractBaseUser, PermissionsMixin):
